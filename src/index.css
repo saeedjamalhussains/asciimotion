@@ -1,0 +1,502 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* Ships the `data-open` / `data-checked` / `data-horizontal` … variants and the
+   accordion keyframes that the registry components are written against. */
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------
+   shadcn/ui semantic tokens.
+
+   The palette is a cool graphite scale with a single azure accent — the
+   register professional editing tools use, where the chrome stays out of
+   the way and colour is reserved for state and the work itself.
+
+   Every component is styled through these variables, so the whole
+   application is re-themed by editing this block alone.
+
+   Contrast, measured in the browser rather than estimated. Every surface is
+   #000, so there is only one column: everything is read against black.
+
+   Text — true white, stepped down through neutral greys
+     --foreground           21.0:1   primary text
+     --fg-dim               13.6:1   control labels
+     --muted-foreground      8.0:1   secondary text
+     --faint                 4.6:1   meta labels and units       (AA)
+     --primary               7.6:1   accent
+     --primary-foreground on --primary   7.5:1   label on a button
+
+   Structure
+     --border                1.8:1   panel outlines and dividers
+     --input                 2.4:1   control tracks and field borders
+     --accent                1.4:1   selection
+     --muted                 1.2:1   hover
+
+   ASCII Motion is dark-only, so `:root` and `.dark` carry the same values.
+   ------------------------------------------------------------------ */
+
+:root,
+.dark {
+  /* Surfaces are all true black — no grey fills anywhere in the product.
+     With no elevation to read, structure is carried entirely by hairline
+     borders, the black gutters between panels, and the text scale. Hover and
+     selection tint towards the azure accent rather than towards grey, so the
+     only non-black areas in the interface are the ones you are interacting
+     with. */
+  --sunken: #000000;
+  --background: #000000;
+  --card: #000000;
+  --popover: #000000;
+  --secondary: #000000;
+
+  /* Interaction states: azure-tinted black, never grey. */
+  --muted: #0f1c2c;
+  --accent: #12253c;
+
+  /* Panels carry no outline at all — they are separated by spacing and by
+     their section headings. What is left of --border is internal: the rule
+     under a panel heading, and the edge of a control that needs to look
+     pressable. It is deliberately quiet so nothing reads as a drawn box. */
+  --border: #22272e;
+  --input: #3a4c66;
+
+  /* Text: true white, stepped down through neutral greys.
+     The ramp is fully desaturated — with a pure white top and pure black
+     ground, a tinted secondary would read as a colour cast rather than as a
+     quieter step. Every step clears WCAG AA on black. */
+  --foreground: #ffffff;
+  --fg-dim: #d0d0d0;
+  --muted-foreground: #a0a0a0;
+  --faint: #757575;
+
+  /* Azure accent: primary actions, focus, selection, active state. */
+  --primary: #5b9df9;
+  --primary-foreground: #00040a;
+  --primary-subtle: #12253c;
+
+  --secondary-foreground: #ffffff;
+  --accent-foreground: #ffffff;
+  --card-foreground: #ffffff;
+  --popover-foreground: #ffffff;
+
+  --destructive: #f2726b;
+  --destructive-foreground: #00040a;
+
+  --ring: #5b9df9;
+
+  --radius: 0.55rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sunken: var(--sunken);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-subtle: var(--primary-subtle);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-fg-dim: var(--fg-dim);
+  --color-faint: var(--faint);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+@theme {
+  /*
+   * Apple's typefaces — San Francisco and SF Mono.
+   *
+   * They are referenced by name and by CSS system keyword, never bundled.
+   * Apple's font licence covers using these faces for interfaces and mock-ups
+   * on Apple platforms but does not permit redistributing the files, so
+   * self-hosting them as web fonts from this site would not be allowed. Read
+   * from the machine they are already installed on, no file is served and no
+   * network request is made for a font.
+   *
+   * On macOS and iOS `system-ui` resolves to SF Pro (SFNS) and `ui-monospace`
+   * to SF Mono (SFNSMono), so these stacks land on Apple's fonts with or
+   * without the developer download from developer.apple.com/fonts. Elsewhere
+   * they fall through to the platform's own UI and monospace faces.
+   */
+  --font-sans:
+    'SF Pro Text', 'SF Pro Display', 'SF Pro', -apple-system, BlinkMacSystemFont, system-ui,
+    sans-serif;
+  --font-mono:
+    'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-serif: 'New York', ui-serif, Georgia, serif;
+
+  --radius-xs: 4px;
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior-y: none;
+  }
+
+  /* Visible, consistent focus ring everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--primary) 32%, transparent);
+    color: #fff;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+
+  /* Scrollbars tuned for the dark shell. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--input);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #414b58;
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .font-mono {
+    font-family: var(--font-mono);
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+
+  /* Section headings: SOURCE, CHARACTER RAMP, PREVIEW.
+     San Francisco Bold rather than the monospace used elsewhere in the
+     chrome — at this size the proportional face reads as a heading, while
+     mono reads as data. */
+  .panel-heading {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.075em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+
+  /* Micro-label used across the editor chrome. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--faint);
+  }
+
+  .surface-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+  }
+
+  .grain {
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      color-mix(in srgb, var(--foreground) 6%, transparent) 1px,
+      transparent 0
+    );
+    background-size: 4px 4px;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+  }
+}
+
+/* Checkerboard used to indicate a transparent export background. */
+.checkerboard {
+  background-color: #000000;
+  background-image:
+    linear-gradient(45deg, #171d24 25%, transparent 25%),
+    linear-gradient(-45deg, #171d24 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #171d24 75%),
+    linear-gradient(-45deg, transparent 75%, #171d24 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+@keyframes am-fade-up {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes am-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes am-scale-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes am-caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes am-sweep {
+  from {
+    transform: translateY(-110%);
+  }
+  to {
+    transform: translateY(320%);
+  }
+}
+
+@keyframes am-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-fade-up {
+  animation: am-fade-up 0.6s var(--ease-out-quint) both;
+}
+.animate-fade {
+  animation: am-fade 0.4s ease both;
+}
+.animate-scale-in {
+  animation: am-scale-in 0.22s var(--ease-out-quint) both;
+}
+.animate-caret {
+  animation: am-caret 1.05s steps(1) infinite;
+}
+.animate-spin-slow {
+  animation: am-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* --------------------------------------------------------------
+   Range input — one styled implementation for every browser.
+   -------------------------------------------------------------- */
+.am-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  display: block;
+  touch-action: pan-y;
+}
+
+.am-slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--primary) 0%,
+    var(--primary) var(--am-fill, 0%),
+    var(--input) var(--am-fill, 0%),
+    var(--input) 100%
+  );
+}
+
+.am-slider::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--input);
+}
+
+.am-slider::-moz-range-progress {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
+}
+
+.am-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  margin-top: -5.5px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--sunken);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+  transition:
+    transform 0.15s var(--ease-out-quint),
+    box-shadow 0.15s ease;
+}
+
+.am-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid var(--sunken);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.am-slider:hover::-webkit-slider-thumb,
+.am-slider:focus-visible::-webkit-slider-thumb {
+  transform: scale(1.18);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+.am-slider:hover::-moz-range-thumb,
+.am-slider:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 24%, transparent);
+}
+
+.am-slider:focus-visible {
+  outline: none;
+}
+
+/* Larger hit target on touch devices. */
+@media (pointer: coarse) {
+  .am-slider {
+    height: 34px;
+  }
+  .am-slider::-webkit-slider-thumb {
+    width: 22px;
+    height: 22px;
+    margin-top: -9px;
+  }
+  .am-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/* Native colour input, restyled to a swatch. */
+.am-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 34px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: pointer;
+}
+.am-swatch::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+.am-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+.am-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 3px;
+  margin: 3px;
+}
