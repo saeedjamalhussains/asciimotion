@@ -18,18 +18,27 @@ export function ratioFromPointer(clientX: number, rect: DOMRect): number {
 /** Nice tick spacing for the ruler, in seconds. */
 export function tickInterval(duration: number, targetTicks: number): number {
   if (!Number.isFinite(duration) || duration <= 0) return 1;
-  const raw = duration / Math.max(1, targetTicks);
-  const candidates = [0.1, 0.25, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600];
-  for (const candidate of candidates) {
-    if (raw <= candidate) return candidate;
+  const safeTarget = Number.isFinite(targetTicks) ? Math.max(1, targetTicks) : 10;
+  const raw = duration / safeTarget;
+  if (raw < 1) {
+    const candidates = [0.1, 0.25, 0.5, 1];
+    return candidates.find((candidate) => raw <= candidate) ?? 1;
   }
-  return 900;
+
+  const magnitude = 10 ** Math.floor(Math.log10(raw));
+  const normalized = raw / magnitude;
+  const multiplier = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return multiplier * magnitude;
 }
 
 export function buildTicks(duration: number, targetTicks: number): number[] {
+  if (!Number.isFinite(duration) || duration < 0) return [];
   const interval = tickInterval(duration, targetTicks);
   const ticks: number[] = [];
-  for (let t = 0; t <= duration + 1e-6; t += interval) ticks.push(Number(t.toFixed(3)));
+  const count = Math.floor((duration + 1e-6) / interval);
+  for (let index = 0; index <= count; index += 1) {
+    ticks.push(Number((index * interval).toFixed(3)));
+  }
   return ticks;
 }
 

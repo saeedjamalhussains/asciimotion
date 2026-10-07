@@ -17,6 +17,7 @@ import { audioBitrateFor, decodeTrimmedAudio, encodeAudio, ElementAudioTap } fro
 import { evenDimension, extensionFor, mimeFor, type FormatSupport } from './codecSupport';
 import { FrameWalker, nextFrame, yieldToUi } from './frameProcessor';
 import type { FrameSource } from './frameSource';
+import { applyWatermark, createWatermarkPattern, type WatermarkPattern } from './watermark';
 
 /**
  * Export pipeline.
@@ -125,19 +126,32 @@ class FrameComposer {
   private settings: EditorSettings;
   private sourceWidth: number;
   private sourceHeight: number;
+  private watermarkEnabled: boolean;
+  private watermarkExportedAt: number;
+  private watermarkPattern: WatermarkPattern | null;
+  private watermarkWidth: number;
+  private watermarkHeight: number;
 
   constructor(
     plan: OutputPlan,
     settings: EditorSettings,
     sourceWidth: number,
     sourceHeight: number,
+    watermarkEnabled = true,
   ) {
     this.plan = plan;
     this.settings = settings;
     this.sourceWidth = sourceWidth;
     this.sourceHeight = sourceHeight;
+    this.watermarkEnabled = watermarkEnabled;
+    this.watermarkExportedAt = Math.floor(Date.now() / 1000);
+    this.watermarkWidth = plan.width;
+    this.watermarkHeight = plan.height;
+    this.watermarkPattern = watermarkEnabled
+      ? createWatermarkPattern(plan.width, plan.height, this.watermarkExportedAt)
+      : null;
     this.canvas = createCanvas(plan.width, plan.height);
-    this.ctx = get2d(this.canvas);
+    this.ctx = get2d(this.canvas, watermarkEnabled ? { willReadFrequently: true } : undefined);
     this.renderer = new AsciiRenderer(createCanvas(2, 2));
   }
 
@@ -175,6 +189,24 @@ class FrameComposer {
       dw,
       dh,
     );
+
+    if (
+      this.watermarkEnabled &&
+      (this.watermarkWidth !== this.canvas.width || this.watermarkHeight !== this.canvas.height)
+    ) {
+      this.watermarkWidth = this.canvas.width;
+      this.watermarkHeight = this.canvas.height;
+      this.watermarkPattern = createWatermarkPattern(
+        this.canvas.width,
+        this.canvas.height,
+        this.watermarkExportedAt,
+      );
+    }
+    if (this.watermarkPattern) {
+      const pixels = this.ctx.getImageData(0, 0, this.canvas.width, this.canvas.height);
+      applyWatermark(pixels.data, this.watermarkPattern);
+      this.ctx.putImageData(pixels, 0, 0);
+    }
   }
 
   readPixels(): ImageData {
@@ -183,6 +215,7 @@ class FrameComposer {
 
   dispose(): void {
     this.renderer.dispose();
+    this.watermarkPattern = null;
     resizeCanvas(this.canvas, 1, 1);
   }
 }
@@ -572,7 +605,8 @@ async function exportGif(job: ExportJob, plan: OutputPlan): Promise<ExportResult
   const totalSeconds = trim.end - trim.start;
   const fps = Math.min(exportSettings.fps, 50);
   const walker = new FrameWalker({ source, start: trim.start, end: trim.end, fps });
-  const composer = new FrameComposer(plan, settings, source.info.width, source.info.height);
+  // GIF's rgb565/palette quantisation collapses this low-amplitude mark and can add visible speckle.
+  const composer = new FrameComposer(plan, settings, source.info.width, source.info.height, false);
 
   const worker = new Worker(new URL('../workers/exportWorker.ts', import.meta.url), {
     type: 'module',

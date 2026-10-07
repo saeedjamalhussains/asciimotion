@@ -238,7 +238,7 @@ export function EditorShell({
         <aside
           aria-label="Controls"
           className={cn(
-            'w-full shrink-0 lg:w-[336px] xl:w-[368px]',
+            'w-full min-w-0 shrink-0 lg:w-[336px] xl:w-[368px]',
             !railOpen && 'hidden lg:block',
           )}
         >

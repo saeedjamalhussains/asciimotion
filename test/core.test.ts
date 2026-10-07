@@ -371,6 +371,19 @@ describe('timeline mapping', () => {
     assert.equal(ticks[0], 0);
     assert.ok(ticks[ticks.length - 1] <= 12.0001);
   });
+
+  it('keeps ruler ticks aligned and readable for very long clips', () => {
+    for (const duration of [14_400, 86_400, 604_800]) {
+      const ticks = buildTicks(duration, 10);
+      assert.equal(ticks[0], 0);
+      assert.ok(ticks.length <= 12, `${duration}s produced ${ticks.length} ticks`);
+      assert.ok(ticks[ticks.length - 1] <= duration);
+      for (let index = 1; index < ticks.length; index += 1) {
+        assert.ok(ticks[index] > ticks[index - 1]);
+      }
+    }
+    assert.deepEqual(buildTicks(Number.POSITIVE_INFINITY, 10), []);
+  });
 });
 
 describe('naming and formatting', () => {
