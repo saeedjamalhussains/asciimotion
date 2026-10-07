@@ -11,7 +11,6 @@ import type {
   BackgroundMode,
   EditorSettings,
   ExportSettings,
-  TrimRange,
 } from '../types';
 import type { FrameSource } from '../video/frameSource';
 import { CharacterSelector } from './CharacterSelector';
@@ -40,7 +39,6 @@ interface SidebarProps {
   exporter: UseExport;
   exportSettings: ExportSettings;
   onExportChange(patch: Partial<ExportSettings>): void;
-  trim: TrimRange;
 }
 
 /** Restores a subset of the editor settings to their defaults. */
@@ -66,7 +64,6 @@ export function Sidebar({
   exporter,
   exportSettings,
   onExportChange,
-  trim,
 }: SidebarProps) {
   const activeEffects = Object.values(settings.effects).filter(Boolean).length;
   const fontId =
@@ -86,7 +83,7 @@ export function Sidebar({
 
       <PanelCard
         title="Character ramp"
-        meta={`${Array.from(settings.charset).length}`}
+        collapsible={false}
         onReset={() => onChange(resetKeys(['charset', 'charsetId']))}
       >
         <CharacterSelector settings={settings} onChange={onChange} />
@@ -94,7 +91,6 @@ export function Sidebar({
 
       <PanelCard
         title="Sampling"
-        meta={`${settings.resolution}`}
         onReset={() =>
           onChange(resetKeys(['resolution', 'fontFamily', 'fontSize', 'letterSpacing', 'lineSpacing']))
         }
@@ -192,7 +188,6 @@ export function Sidebar({
       <PanelCard
         title="Effects"
         meta={activeEffects > 0 ? `${activeEffects} on` : undefined}
-        defaultOpen={false}
         onReset={() => onChange(resetKeys(['effects']))}
       >
         <EffectsPanel settings={settings} onChange={onChange} />
@@ -202,7 +197,6 @@ export function Sidebar({
         exporter={exporter}
         exportSettings={exportSettings}
         onChange={onExportChange}
-        trim={trim}
         hasAudio={source?.info.hasAudio ?? false}
         disabled={!source}
       />

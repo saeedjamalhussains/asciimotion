@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { UseExport } from '../hooks/useExport';
-import type { ExportFormat, ExportSettings, QualityLevel, TrimRange } from '../types';
+import type { ExportFormat, ExportSettings, QualityLevel } from '../types';
 import { cn } from '@/lib/utils';
 import { formatBytes } from '../utils/formatTime';
 import { ExportProgress } from './ExportProgress';
@@ -14,7 +14,6 @@ interface ExportCardProps {
   exporter: UseExport;
   exportSettings: ExportSettings;
   onChange(patch: Partial<ExportSettings>): void;
-  trim: TrimRange;
   hasAudio: boolean;
   disabled: boolean;
 }
@@ -35,11 +34,10 @@ export function ExportCard({
   exporter,
   exportSettings,
   onChange,
-  trim,
   hasAudio,
   disabled,
 }: ExportCardProps) {
-  const { state, result, error, support, probing, outputSize } = exporter;
+  const { state, result, error, support, probing } = exporter;
   const busy =
     state.phase === 'preparing' ||
     state.phase === 'rendering' ||
@@ -47,8 +45,6 @@ export function ExportCard({
     state.phase === 'finalizing';
 
   const activeSupport = support?.[exportSettings.format] ?? null;
-  const duration = Math.max(0, trim.end - trim.start);
-  const frames = Math.max(1, Math.round(duration * exportSettings.fps));
   const audioAvailable = hasAudio && (activeSupport?.canIncludeAudio ?? false);
 
   const notes = useMemo(() => {
@@ -111,7 +107,7 @@ export function ExportCard({
 
   // -------------------------------------------------------------- Settings
   return (
-    <PanelCard title="Export" meta={probing ? undefined : `${frames} frames`} collapsible={false}>
+    <PanelCard title="Export" collapsible={false}>
       {(error || state.phase === 'cancelled') && (
         <div
           role="alert"
@@ -227,25 +223,6 @@ export function ExportCard({
         onChange={(includeAudio) => onChange({ includeAudio })}
       />
 
-      <dl className="space-y-1 rounded-[8px] border border-border bg-background px-2.5 py-2 font-mono text-[10.5px]">
-        <Row label="output" value={outputSize ? `${outputSize.width}×${outputSize.height}` : '—'} />
-        <Row label="range" value={`${duration.toFixed(2)}s · ${frames}f`} />
-        <Row
-          label="encoder"
-          value={
-            probing
-              ? 'checking…'
-              : activeSupport?.strategy === 'webcodecs'
-                ? 'WebCodecs'
-                : activeSupport?.strategy === 'mediarecorder'
-                  ? 'MediaRecorder'
-                  : activeSupport?.strategy === 'gif'
-                    ? 'GIF worker'
-                    : 'unavailable'
-          }
-        />
-      </dl>
-
       {notes.length > 0 && (
         <ul className="space-y-1">
           {notes.map((note) => (
@@ -265,14 +242,5 @@ export function ExportCard({
         {probing ? 'Checking encoders…' : 'Export video'}
       </Button>
     </PanelCard>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <dt className="text-faint">{label}</dt>
-      <dd className="truncate tabular text-muted-foreground">{value}</dd>
-    </div>
   );
 }

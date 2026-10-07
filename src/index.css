@@ -9,83 +9,51 @@
 /* ------------------------------------------------------------------
    shadcn/ui semantic tokens.
 
-   The palette is a cool graphite scale with a single azure accent — the
-   register professional editing tools use, where the chrome stays out of
-   the way and colour is reserved for state and the work itself.
-
-   Every component is styled through these variables, so the whole
-   application is re-themed by editing this block alone.
-
-   Contrast, measured in the browser rather than estimated. Every surface is
-   #000, so there is only one column: everything is read against black.
-
-   Text — true white, stepped down through neutral greys
-     --foreground           21.0:1   primary text
-     --fg-dim               13.6:1   control labels
-     --muted-foreground      8.0:1   secondary text
-     --faint                 4.6:1   meta labels and units       (AA)
-     --primary               7.6:1   accent
-     --primary-foreground on --primary   7.5:1   label on a button
-
-   Structure
-     --border                1.8:1   panel outlines and dividers
-     --input                 2.4:1   control tracks and field borders
-     --accent                1.4:1   selection
-     --muted                 1.2:1   hover
+   Deep ink surfaces with a single indigo accent. Every component is styled
+   through these variables, so the application is re-themed by editing this
+   block alone. Contrast ratios have not been re-measured since the palette
+   changed from black and azure.
 
    ASCII Motion is dark-only, so `:root` and `.dark` carry the same values.
    ------------------------------------------------------------------ */
 
 :root,
 .dark {
-  /* Surfaces are all true black — no grey fills anywhere in the product.
-     With no elevation to read, structure is carried entirely by hairline
-     borders, the black gutters between panels, and the text scale. Hover and
-     selection tint towards the azure accent rather than towards grey, so the
-     only non-black areas in the interface are the ones you are interacting
-     with. */
-  --sunken: #000000;
-  --background: #000000;
-  --card: #000000;
-  --popover: #000000;
-  --secondary: #000000;
+  /* Surfaces step up in lightness: page, panel, then raised. */
+  --sunken: #07080d;
+  --background: #0b0d14;
+  --card: #11141d;
+  --popover: #151925;
+  --secondary: #161a26;
 
-  /* Interaction states: azure-tinted black, never grey. */
-  --muted: #0f1c2c;
-  --accent: #12253c;
+  /* Hover and selection tint towards the accent. */
+  --muted: #1a1f2e;
+  --accent: #232950;
 
-  /* Panels carry no outline at all — they are separated by spacing and by
-     their section headings. What is left of --border is internal: the rule
-     under a panel heading, and the edge of a control that needs to look
-     pressable. It is deliberately quiet so nothing reads as a drawn box. */
-  --border: #22272e;
-  --input: #3a4c66;
+  --border: #252b3b;
+  --input: #384056;
 
-  /* Text: true white, stepped down through neutral greys.
-     The ramp is fully desaturated — with a pure white top and pure black
-     ground, a tinted secondary would read as a colour cast rather than as a
-     quieter step. Every step clears WCAG AA on black. */
-  --foreground: #ffffff;
-  --fg-dim: #d0d0d0;
-  --muted-foreground: #a0a0a0;
-  --faint: #757575;
+  --foreground: #f5f6fb;
+  --fg-dim: #d3d7e3;
+  --muted-foreground: #9aa2b8;
+  --faint: #7d859c;
 
-  /* Azure accent: primary actions, focus, selection, active state. */
-  --primary: #5b9df9;
-  --primary-foreground: #00040a;
-  --primary-subtle: #12253c;
+  /* Indigo accent: primary actions, focus, selection, active state. */
+  --primary: #8b8cff;
+  --primary-foreground: #0a0b1a;
+  --primary-subtle: #20214a;
 
-  --secondary-foreground: #ffffff;
-  --accent-foreground: #ffffff;
-  --card-foreground: #ffffff;
-  --popover-foreground: #ffffff;
+  --secondary-foreground: #f5f6fb;
+  --accent-foreground: #f5f6fb;
+  --card-foreground: #f5f6fb;
+  --popover-foreground: #f5f6fb;
 
-  --destructive: #f2726b;
-  --destructive-foreground: #00040a;
+  --destructive: #f87171;
+  --destructive-foreground: #1a0a0a;
 
-  --ring: #5b9df9;
+  --ring: #8b8cff;
 
-  --radius: 0.55rem;
+  --radius: 0.65rem;
 }
 
 @theme inline {
@@ -137,10 +105,9 @@
    * they fall through to the platform's own UI and monospace faces.
    */
   --font-sans:
-    'SF Pro Text', 'SF Pro Display', 'SF Pro', -apple-system, BlinkMacSystemFont, system-ui,
-    sans-serif;
+    'Inter Variable', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   --font-mono:
-    'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+    'JetBrains Mono Variable', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
   --font-serif: 'New York', ui-serif, Georgia, serif;
 
   --radius-xs: 4px;
@@ -169,6 +136,12 @@
   body {
     margin: 0;
     background-color: var(--background);
+    background-image: radial-gradient(
+      900px 480px at 85% -8%,
+      color-mix(in srgb, var(--primary) 11%, transparent),
+      transparent 70%
+    );
+    background-attachment: fixed;
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: 14px;
@@ -223,7 +196,7 @@
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #414b58;
+    background: #4a5370;
     background-clip: content-box;
   }
 }
@@ -285,12 +258,12 @@
 
 /* Checkerboard used to indicate a transparent export background. */
 .checkerboard {
-  background-color: #000000;
+  background-color: #07080d;
   background-image:
-    linear-gradient(45deg, #171d24 25%, transparent 25%),
-    linear-gradient(-45deg, #171d24 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #171d24 75%),
-    linear-gradient(-45deg, transparent 75%, #171d24 75%);
+    linear-gradient(45deg, #151a26 25%, transparent 25%),
+    linear-gradient(-45deg, #151a26 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #151a26 75%),
+    linear-gradient(-45deg, transparent 75%, #151a26 75%);
   background-size: 16px 16px;
   background-position:
     0 0,

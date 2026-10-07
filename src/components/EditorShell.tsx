@@ -16,6 +16,9 @@ import { Button } from '@/components/ui/button';
 import { IconButton } from './controls/IconButton';
 import { DownloadIcon, RestoreIcon, SlidersIcon, UploadIcon } from './ui/Icons';
 
+const RAIL_MIN = 280;
+const RAIL_MAX = 640;
+
 interface EditorShellProps {
   source: FrameSource | null;
   file: File | null;
@@ -47,6 +50,29 @@ export function EditorShell({
   const [railOpen, setRailOpen] = useState(false);
   const dragDepth = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const [railWidth, setRailWidth] = useState<number | null>(null);
+  const [resizing, setResizing] = useState(false);
+
+  const clampRail = useCallback((width: number) => {
+    const available = bodyRef.current?.clientWidth ?? 1200;
+    return Math.round(Math.max(RAIL_MIN, Math.min(width, RAIL_MAX, available * 0.6)));
+  }, []);
+
+  const onResizeMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!resizing || !bodyRef.current) return;
+    const right = bodyRef.current.getBoundingClientRect().right;
+    setRailWidth(clampRail(right - event.clientX));
+  };
+
+  const onResizeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const current = railRef.current?.clientWidth ?? RAIL_MIN;
+    if (event.key === 'ArrowLeft') setRailWidth(clampRail(current + 16));
+    else if (event.key === 'ArrowRight') setRailWidth(clampRail(current - 16));
+    else if (event.key === 'Home' || event.key === 'Enter') setRailWidth(null);
+    else return;
+    event.preventDefault();
+  };
 
   const timeline = useTimeline(source?.info.duration ?? 0);
   const transport = useVideo(source, timeline.trim);
@@ -170,7 +196,7 @@ export function EditorShell({
         <span className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className="flex h-6 w-6 items-center justify-center rounded-[6px] border border-input bg-background font-mono text-[11px] leading-none font-bold text-primary"
+            className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-gradient-to-br from-primary to-[#b18cff] font-mono text-[11px] leading-none font-bold text-primary-foreground shadow-[0_6px_16px_-6px_color-mix(in_srgb,var(--primary)_80%,transparent)]"
           >
             &gt;_
           </span>
@@ -222,7 +248,7 @@ export function EditorShell({
       {/* -------------------------------------------------------------- Body */}
         {/* Below lg the page flows naturally; from lg it becomes a fixed-height
           two-column workspace. */}
-      <div className="flex min-h-0 flex-col gap-2 lg:flex-1 lg:flex-row">
+      <div ref={bodyRef} className="flex min-h-0 flex-col gap-2 lg:flex-1 lg:flex-row">
         <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
           <div className="flex min-h-[46vh] flex-col sm:min-h-[52vh] lg:min-h-0 lg:flex-1">
             <PreviewStage
@@ -235,10 +261,38 @@ export function EditorShell({
           {source && <Timeline source={source} transport={transport} timeline={timeline} />}
         </main>
 
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize preview and controls"
+          aria-valuenow={railWidth ?? undefined}
+          tabIndex={0}
+          title="Drag to resize · double-click to reset"
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setResizing(true);
+          }}
+          onPointerMove={onResizeMove}
+          onPointerUp={() => setResizing(false)}
+          onPointerCancel={() => setResizing(false)}
+          onDoubleClick={() => setRailWidth(null)}
+          onKeyDown={onResizeKey}
+          className="group hidden w-2 shrink-0 -mx-2 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
+        >
+          <span
+            aria-hidden="true"
+            className={cn(
+              'h-12 w-0.5 rounded-full bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary',
+              resizing && 'bg-primary',
+            )}
+          />
+        </div>
+
         <aside
           aria-label="Controls"
+          style={railWidth ? ({ '--rail-w': `${railWidth}px` } as React.CSSProperties) : undefined}
           className={cn(
-            'w-full min-w-0 shrink-0 lg:w-[336px] xl:w-[368px]',
+            'w-full min-w-0 shrink-0 lg:w-[var(--rail-w,336px)] xl:w-[var(--rail-w,368px)]',
             !railOpen && 'hidden lg:block',
           )}
         >
@@ -256,7 +310,6 @@ export function EditorShell({
             exporter={exporter}
             exportSettings={exportSettings}
             onExportChange={patchExport}
-            trim={timeline.trim}
           />
           </ScrollArea>
         </aside>

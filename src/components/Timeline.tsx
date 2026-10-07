@@ -158,7 +158,7 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
   };
 
   return (
-    <div className="shrink-0 overflow-hidden rounded-[10px] bg-card">
+    <div className="shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]">
       {/* -------------------------------------------------------- Scrubber */}
       <div className="px-3 pt-3 pb-1">
         <div

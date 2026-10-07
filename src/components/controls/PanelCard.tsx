@@ -34,7 +34,7 @@ export function PanelCard({
   onReset,
   resetLabel,
   collapsible = true,
-  defaultOpen = true,
+  defaultOpen = false,
   className,
   children,
 }: PanelCardProps) {
@@ -65,12 +65,12 @@ export function PanelCard({
   );
 
   const body = (
-    <div className="space-y-3.5 border-t border-border px-3 pt-3 pb-3.5">{children}</div>
+    <div className="space-y-4 border-t border-border/70 px-3.5 pt-3.5 pb-4">{children}</div>
   );
 
   if (!collapsible) {
     return (
-      <section className={cn('overflow-hidden rounded-lg bg-card', className)}>
+      <section className={cn('overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]', className)}>
         <header className="flex items-center gap-2 py-2.5 pr-1.5 pl-3">
           {header}
           {resetButton}
@@ -84,7 +84,7 @@ export function PanelCard({
     <Collapsible
       defaultOpen={defaultOpen}
       className={cn(
-        'group/panel overflow-hidden rounded-lg bg-card',
+        'group/panel overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]',
         className,
       )}
       asChild

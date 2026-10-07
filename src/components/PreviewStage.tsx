@@ -66,15 +66,10 @@ export function PreviewStage({ source, settings, overlay, emptyState }: PreviewS
   return (
     <div
       ref={cardRef}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] bg-background"
+      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]"
     >
       <header className="flex shrink-0 items-center gap-3 px-3 py-2.5">
         <span className="panel-heading">Preview</span>
-        {stats && (
-          <span className="hidden font-mono tabular text-[10.5px] text-faint sm:inline">
-            {stats.cols}×{stats.rows} · {stats.width}×{stats.height}
-          </span>
-        )}
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton
             label={copied ? 'Frame copied' : 'Copy this frame as text'}

@@ -95,9 +95,6 @@ export function CharacterSelector({ settings, onChange }: CharacterSelectorProps
             settings.charsetId === 'custom' ? 'border-primary/45' : 'border-border hover:border-input',
           )}
         />
-        <p className="pt-1 text-[11.5px] leading-snug text-faint">
-          {Array.from(settings.charset).length} glyphs in the active ramp.
-        </p>
       </div>
 
       <LabeledSlider
