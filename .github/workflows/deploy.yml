@@ -2,6 +2,11 @@ name: Deploy
 
 # Builds the static site and publishes it to GitHub Pages.
 # The app is fully client-side, so this only ever ships static files.
+#
+# Every run starts fresh: nothing is restored from a cache, and once a deploy
+# succeeds the cleanup job deletes all earlier runs, artifacts, caches and
+# deployment records. That history cannot be recovered, so there is no earlier
+# deployment to look back at or roll back to; revert the commit instead.
 
 on:
   push:
@@ -20,22 +25,14 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      actions: write # Needed to delete the previous build artifacts.
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
-      # No dependency cache: every commit installs and builds from nothing.
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: 22
-
-      - name: Remove any previous output
-        run: rm -rf dist node_modules
 
       - name: Install dependencies
         run: npm ci
@@ -47,16 +44,6 @@ jobs:
         # Pages must be enabled once in Settings > Pages with the source set
         # to GitHub Actions. The workflow token cannot create the Pages site.
         uses: actions/configure-pages@v5
-
-      # Runs after the build, so a failed build leaves the last good one in place.
-      - name: Delete previous build artifacts
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?name=github-pages" --jq '.artifacts[].id' |
-            while read -r id; do
-              gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
-            done
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
@@ -73,3 +60,51 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+  # Runs only after a successful deploy, so a failed run keeps the live site's
+  # records and earlier logs for debugging.
+  cleanup:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      deployments: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      CURRENT_RUN: ${{ github.run_id }}
+    steps:
+      - name: Delete earlier runs
+        # Their artifacts go with them. A run still in progress cannot be
+        # deleted, and one failed delete should not fail a good deploy.
+        run: |
+          gh api --paginate "repos/$GH_REPO/actions/runs?per_page=100" \
+            --jq ".workflow_runs[] | select(.id != $CURRENT_RUN) | .id" |
+            while read -r id; do
+              gh api -X DELETE "repos/$GH_REPO/actions/runs/$id" ||
+                echo "::warning::Could not delete run $id"
+            done
+
+      - name: Delete remaining artifacts
+        run: |
+          gh api --paginate "repos/$GH_REPO/actions/artifacts?per_page=100" \
+            --jq ".artifacts[] | select(.workflow_run.id != $CURRENT_RUN) | .id" |
+            while read -r id; do
+              gh api -X DELETE "repos/$GH_REPO/actions/artifacts/$id" ||
+                echo "::warning::Could not delete artifact $id"
+            done
+
+      - name: Delete caches
+        run: gh cache delete --all || echo "::notice::No caches to delete"
+
+      - name: Delete earlier deployments
+        # Newest first, so the first entry is the one just published and stays.
+        # GitHub only allows deleting a deployment once it is inactive.
+        run: |
+          gh api --paginate "repos/$GH_REPO/deployments?environment=github-pages&per_page=100" \
+            --jq '.[].id' | tail -n +2 |
+            while read -r id; do
+              gh api -X POST "repos/$GH_REPO/deployments/$id/statuses" -f state=inactive --silent &&
+                gh api -X DELETE "repos/$GH_REPO/deployments/$id" --silent ||
+                echo "::warning::Could not delete deployment $id"
+            done
