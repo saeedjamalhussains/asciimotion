@@ -1,5 +1,10 @@
 import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
+
+/** The type scale in index.css; unregistered, `text-body` would read as a colour. */
+const twMerge = extendTailwindMerge({
+  extend: { theme: { text: ['caption', 'footnote', 'body', 'title', 'display'] } },
+});
 
 /**
  * Joins class names and resolves Tailwind conflicts, last one winning.

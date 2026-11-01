@@ -1,59 +1,53 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-/* Ships the `data-open` / `data-checked` / `data-horizontal` … variants and the
-   accordion keyframes that the registry components are written against. */
+/* Ships the `data-open` / `data-checked` / `data-horizontal` … variants that the
+   registry components are written against. */
 @import 'shadcn/tailwind.css';
 
-@custom-variant dark (&:is(.dark *));
-
 /* ------------------------------------------------------------------
-   shadcn/ui semantic tokens.
+   Semantic tokens, after Apple's dark system palette.
 
-   Deep ink surfaces with a single indigo accent. Every component is styled
-   through these variables, so the application is re-themed by editing this
-   block alone. Contrast ratios have not been re-measured since the palette
-   changed from black and azure.
-
-   ASCII Motion is dark-only, so `:root` and `.dark` carry the same values.
+   Neutral surfaces keep the chrome out of the way of the artwork, and one blue
+   tint marks whatever is active. ASCII Motion is dark-only, like most video
+   tools, so the stage stays the brightest thing on screen.
    ------------------------------------------------------------------ */
 
-:root,
-.dark {
-  /* Surfaces step up in lightness: page, panel, then raised. */
-  --sunken: #07080d;
-  --background: #0b0d14;
-  --card: #11141d;
-  --popover: #151925;
-  --secondary: #161a26;
+:root {
+  --sunken: #000000;
+  --background: #000000;
+  --card: #1c1c1e;
+  --popover: #2c2c2e;
 
-  /* Hover and selection tint towards the accent. */
-  --muted: #1a1f2e;
-  --accent: #232950;
+  /* Translucent fills sit on any surface, so controls need no borders. */
+  --fill: rgb(120 120 128 / 0.24);
+  --muted: rgb(120 120 128 / 0.32);
+  --input: rgb(120 120 128 / 0.42);
+  --secondary: var(--fill);
 
-  --border: #252b3b;
-  --input: #384056;
+  --border: #38383a;
 
-  --foreground: #f5f6fb;
-  --fg-dim: #d3d7e3;
-  --muted-foreground: #9aa2b8;
-  --faint: #7d859c;
+  --foreground: #f5f5f7;
+  --fg-dim: #d1d1d6;
+  --muted-foreground: #aeaeb2;
+  --faint: #8e8e93;
 
-  /* Indigo accent: primary actions, focus, selection, active state. */
-  --primary: #8b8cff;
-  --primary-foreground: #0a0b1a;
-  --primary-subtle: #20214a;
+  /* `primary` is a fill under white text; `tint` is the same blue as text. */
+  --primary: #0071e3;
+  --primary-foreground: #ffffff;
+  --tint: #409cff;
+  --trim: #ffd60a;
 
-  --secondary-foreground: #f5f6fb;
-  --accent-foreground: #f5f6fb;
-  --card-foreground: #f5f6fb;
-  --popover-foreground: #f5f6fb;
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --secondary-foreground: var(--foreground);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
 
-  --destructive: #f87171;
-  --destructive-foreground: #1a0a0a;
+  --destructive: #ff6961;
 
-  --ring: #8b8cff;
+  --ring: var(--tint);
 
-  --radius: 0.65rem;
+  --radius: 0.625rem;
 }
 
 @theme inline {
@@ -66,7 +60,6 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-primary-subtle: var(--primary-subtle);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
@@ -74,13 +67,15 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
 
+  --color-fill: var(--fill);
   --color-fg-dim: var(--fg-dim);
   --color-faint: var(--faint);
+  --color-tint: var(--tint);
+  --color-trim: var(--trim);
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -90,28 +85,34 @@
 
 @theme {
   /*
-   * Apple's typefaces — San Francisco and SF Mono.
-   *
-   * They are referenced by name and by CSS system keyword, never bundled.
-   * Apple's font licence covers using these faces for interfaces and mock-ups
-   * on Apple platforms but does not permit redistributing the files, so
-   * self-hosting them as web fonts from this site would not be allowed. Read
-   * from the machine they are already installed on, no file is served and no
-   * network request is made for a font.
-   *
-   * On macOS and iOS `system-ui` resolves to SF Pro (SFNS) and `ui-monospace`
-   * to SF Mono (SFNSMono), so these stacks land on Apple's fonts with or
-   * without the developer download from developer.apple.com/fonts. Elsewhere
-   * they fall through to the platform's own UI and monospace faces.
+   * System faces, referenced by keyword and never bundled: San Francisco and
+   * SF Mono on Apple platforms, the platform's own UI faces elsewhere.
    */
   --font-sans:
-    'Inter Variable', 'SF Pro Text', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-mono:
-    'JetBrains Mono Variable', 'SF Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
-  --font-serif: 'New York', ui-serif, Georgia, serif;
+    -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', SFMono-Regular, Menlo, Monaco, monospace;
 
-  --radius-xs: 4px;
-  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  /*
+   * Tracking and leading are set per size: small type opens up, large type
+   * tightens. Sizes are in rem so the layout follows the reader's text setting.
+   */
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 1.3;
+  --text-caption--letter-spacing: 0.006em;
+  --text-footnote: 0.75rem;
+  --text-footnote--line-height: 1.35;
+  --text-footnote--letter-spacing: 0;
+  --text-body: 0.8125rem;
+  --text-body--line-height: 1.4;
+  --text-body--letter-spacing: -0.004em;
+  --text-title: 1.0625rem;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: -0.014em;
+  --text-display: 1.375rem;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.02em;
+
+  --ease-apple: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 @layer base {
@@ -135,32 +136,28 @@
 
   body {
     margin: 0;
+    overflow: hidden;
     background-color: var(--background);
-    background-image: radial-gradient(
-      900px 480px at 85% -8%,
-      color-mix(in srgb, var(--primary) 11%, transparent),
-      transparent 70%
-    );
-    background-attachment: fixed;
     color: var(--foreground);
     font-family: var(--font-sans);
-    font-size: 14px;
-    line-height: 1.55;
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    letter-spacing: var(--text-body--letter-spacing);
+    font-optical-sizing: auto;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
   }
 
-  /* Visible, consistent focus ring everywhere. */
+  /* One focus ring everywhere; it follows each control's own corner radius. */
   :focus-visible {
     outline: 2px solid var(--ring);
     outline-offset: 2px;
-    border-radius: 3px;
   }
 
   ::selection {
-    background: color-mix(in srgb, var(--primary) 32%, transparent);
+    background: color-mix(in srgb, var(--primary) 50%, transparent);
     color: #fff;
   }
 
@@ -168,102 +165,115 @@
   h2,
   h3,
   h4 {
-    font-weight: 600;
-    letter-spacing: -0.02em;
     text-wrap: balance;
   }
 
-  /* Scrollbars tuned for the dark shell. */
   * {
     scrollbar-width: thin;
     scrollbar-color: var(--input) transparent;
   }
-
-  ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
-  }
-
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--input);
-    border: 3px solid transparent;
-    background-clip: content-box;
-    border-radius: 999px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: #4a5370;
-    background-clip: content-box;
-  }
 }
 
 @layer utilities {
-  .font-mono {
-    font-family: var(--font-mono);
-  }
-
   .tabular {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
   }
+}
 
-  /* Section headings: SOURCE, CHARACTER RAMP, PREVIEW.
-     San Francisco Bold rather than the monospace used elsewhere in the
-     chrome — at this size the proportional face reads as a heading, while
-     mono reads as data. */
-  .panel-heading {
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.075em;
-    text-transform: uppercase;
-    color: var(--fg-dim);
+/* Feedback lands the instant a control is pressed, not when it is released. */
+@utility press {
+  transition:
+    transform 100ms ease-out,
+    background-color 150ms ease,
+    color 150ms ease,
+    filter 150ms ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
   }
+}
 
-  /* Micro-label used across the editor chrome. */
-  .eyebrow {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
-    color: var(--faint);
+/* --------------------------------------------------------------
+   Materials: chrome floats over the stage so the artwork can run underneath.
+   Larger surfaces read as thicker, with more blur and a deeper shadow. The top
+   edge is a highlight, as if catching light.
+   -------------------------------------------------------------- */
+.glass {
+  background: rgb(38 38 40 / 0.86);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 rgb(255 255 255 / 0.18),
+    0 0 0 0.5px rgb(0 0 0 / 0.5),
+    0 12px 32px rgb(0 0 0 / 0.45);
+}
+
+.glass-chip {
+  background: rgb(38 38 40 / 0.86);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  backdrop-filter: blur(16px) saturate(180%);
+  box-shadow:
+    inset 0 0.5px 0 rgb(255 255 255 / 0.18),
+    0 0 0 0.5px rgb(0 0 0 / 0.5),
+    0 2px 8px rgb(0 0 0 / 0.35);
+}
+
+/* Glass arrives as a material, gaining blur and scale rather than only fading. */
+@keyframes am-materialize {
+  from {
+    opacity: 0;
+    transform: scale(0.98);
+    -webkit-backdrop-filter: blur(0);
+    backdrop-filter: blur(0);
   }
+}
 
-  .surface-panel {
-    background: var(--card);
-    border: 1px solid var(--border);
+.animate-materialize {
+  animation: am-materialize 180ms var(--ease-apple) both;
+}
+
+/* Fades in behind the opening panel; closing is instant so it never blocks input. */
+@keyframes am-disclose {
+  from {
+    height: 0;
+    opacity: 0;
   }
-
-  .grain {
-    background-image: radial-gradient(
-      circle at 1px 1px,
-      color-mix(in srgb, var(--foreground) 6%, transparent) 1px,
-      transparent 0
-    );
-    background-size: 4px 4px;
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
   }
+}
 
-  .hide-scrollbar::-webkit-scrollbar {
+.animate-disclose[data-state='open'] {
+  animation: am-disclose 240ms var(--ease-apple);
+}
+
+/* Measures its own height so the transport can adapt to a raised sheet. */
+.am-stage {
+  container-type: size;
+}
+
+/* The sheet stays behind when the stage goes fullscreen, so stop making room for it. */
+.am-stage:fullscreen {
+  height: 100dvh;
+}
+
+/* Beside a half-raised sheet the artwork needs the room more than the trim read-out. */
+@container (max-height: 30rem) {
+  .am-trim-row {
     display: none;
-  }
-
-  .hide-scrollbar {
-    scrollbar-width: none;
   }
 }
 
 /* Checkerboard used to indicate a transparent export background. */
 .checkerboard {
-  background-color: #07080d;
+  background-color: #0a0a0a;
   background-image:
-    linear-gradient(45deg, #151a26 25%, transparent 25%),
-    linear-gradient(-45deg, #151a26 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #151a26 75%),
-    linear-gradient(-45deg, transparent 75%, #151a26 75%);
+    linear-gradient(45deg, #1c1c1e 25%, transparent 25%),
+    linear-gradient(-45deg, #1c1c1e 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #1c1c1e 75%),
+    linear-gradient(-45deg, transparent 75%, #1c1c1e 75%);
   background-size: 16px 16px;
   background-position:
     0 0,
@@ -272,77 +282,29 @@
     -8px 0;
 }
 
-@keyframes am-fade-up {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 10px, 0);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+/* Native colour input, restyled to a swatch. */
+.am-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  cursor: pointer;
 }
-
-@keyframes am-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+.am-swatch::-webkit-color-swatch-wrapper {
+  padding: 3px;
 }
-
-@keyframes am-scale-in {
-  from {
-    opacity: 0;
-    transform: translate3d(0, 8px, 0) scale(0.98);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.am-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 5px;
 }
-
-@keyframes am-caret {
-  0%,
-  49% {
-    opacity: 1;
-  }
-  50%,
-  100% {
-    opacity: 0;
-  }
-}
-
-@keyframes am-sweep {
-  from {
-    transform: translateY(-110%);
-  }
-  to {
-    transform: translateY(320%);
-  }
-}
-
-@keyframes am-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.animate-fade-up {
-  animation: am-fade-up 0.6s var(--ease-out-quint) both;
-}
-.animate-fade {
-  animation: am-fade 0.4s ease both;
-}
-.animate-scale-in {
-  animation: am-scale-in 0.22s var(--ease-out-quint) both;
-}
-.animate-caret {
-  animation: am-caret 1.05s steps(1) infinite;
-}
-.animate-spin-slow {
-  animation: am-spin 1s linear infinite;
+.am-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 5px;
+  margin: 3px;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -354,122 +316,35 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-}
 
-/* --------------------------------------------------------------
-   Range input — one styled implementation for every browser.
-   -------------------------------------------------------------- */
-.am-slider {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 22px;
-  background: transparent;
-  cursor: pointer;
-  display: block;
-  touch-action: pan-y;
-}
-
-.am-slider::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 999px;
-  background: linear-gradient(
-    to right,
-    var(--primary) 0%,
-    var(--primary) var(--am-fill, 0%),
-    var(--input) var(--am-fill, 0%),
-    var(--input) 100%
-  );
-}
-
-.am-slider::-moz-range-track {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--input);
-}
-
-.am-slider::-moz-range-progress {
-  height: 4px;
-  border-radius: 999px;
-  background: var(--primary);
-}
-
-.am-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 15px;
-  height: 15px;
-  margin-top: -5.5px;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid var(--sunken);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-  transition:
-    transform 0.15s var(--ease-out-quint),
-    box-shadow 0.15s ease;
-}
-
-.am-slider::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 999px;
-  background: #ffffff;
-  border: 1px solid var(--sunken);
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
-}
-
-.am-slider:hover::-webkit-slider-thumb,
-.am-slider:focus-visible::-webkit-slider-thumb {
-  transform: scale(1.18);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 24%, transparent);
-}
-
-.am-slider:hover::-moz-range-thumb,
-.am-slider:focus-visible::-moz-range-thumb {
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--primary) 24%, transparent);
-}
-
-.am-slider:focus-visible {
-  outline: none;
-}
-
-/* Larger hit target on touch devices. */
-@media (pointer: coarse) {
-  .am-slider {
-    height: 34px;
-  }
-  .am-slider::-webkit-slider-thumb {
-    width: 22px;
-    height: 22px;
-    margin-top: -9px;
-  }
-  .am-slider::-moz-range-thumb {
-    width: 20px;
-    height: 20px;
+  .press:active:not(:disabled) {
+    transform: none;
+    filter: brightness(1.25);
   }
 }
 
-/* Native colour input, restyled to a swatch. */
-.am-swatch {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 34px;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--input);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  cursor: pointer;
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-chip {
+    background: #2c2c2e;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
-.am-swatch::-webkit-color-swatch-wrapper {
-  padding: 3px;
-}
-.am-swatch::-webkit-color-swatch {
-  border: none;
-  border-radius: 3px;
-}
-.am-swatch::-moz-color-swatch {
-  border: none;
-  border-radius: 3px;
-  margin: 3px;
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: #8e8e93;
+    --muted-foreground: #e5e5ea;
+    --faint: #d1d1d6;
+    --fill: rgb(120 120 128 / 0.5);
+  }
+
+  .glass,
+  .glass-chip {
+    background: #1c1c1e;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: 0 0 0 1px #8e8e93;
+  }
 }

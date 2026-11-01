@@ -1,78 +1,45 @@
 import type { ReactNode } from 'react';
-import { RotateCcw } from 'lucide-react';
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
-import { ChevronDownIcon } from '@/components/ui/Icons';
+import { ChevronDownIcon, RestoreIcon } from '@/components/ui/Icons';
+import { IconButton } from './IconButton';
 
 interface PanelCardProps {
   title: string;
   /** Small value shown at the right of the header. */
   meta?: string;
+  /** Present only while the section differs from its defaults. */
   onReset?(): void;
-  resetLabel?: string;
   collapsible?: boolean;
-  defaultOpen?: boolean;
-  className?: string;
   children: ReactNode;
 }
 
 /**
  * A titled section of the control rail.
  *
- * Radix's Collapsible drives the disclosure, which brings the correct ARIA
- * wiring and the enter/exit animation the shadcn styles expect.
+ * Radix's Collapsible drives the disclosure and its ARIA wiring. The reset
+ * control sits beside the trigger rather than inside it, and the chevron holds
+ * its place whether or not a reset is on offer.
  */
-export function PanelCard({
-  title,
-  meta,
-  onReset,
-  resetLabel,
-  collapsible = true,
-  defaultOpen = false,
-  className,
-  children,
-}: PanelCardProps) {
-  const header = (
-    <>
-      <span className="panel-heading flex-1 truncate text-left">{title}</span>
-      {meta && (
-        <span className="tabular shrink-0 font-mono text-[10.5px] text-faint">{meta}</span>
-      )}
-    </>
-  );
-
+export function PanelCard({ title, meta, onReset, collapsible = true, children }: PanelCardProps) {
+  const heading = <span className="min-w-0 flex-1 truncate font-semibold">{title}</span>;
+  const metaLabel = meta && <span className="tabular shrink-0 text-footnote text-faint">{meta}</span>;
   const resetButton = onReset && (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          onClick={onReset}
-          aria-label={resetLabel ?? `Reset ${title.toLowerCase()}`}
-          className="shrink-0 text-faint hover:text-fg-dim"
-        >
-          <RotateCcw />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent>{resetLabel ?? `Reset ${title.toLowerCase()}`}</TooltipContent>
-    </Tooltip>
+    <IconButton label={`Reset ${title.toLowerCase()}`} size="sm" onClick={onReset}>
+      <RestoreIcon />
+    </IconButton>
   );
-
-  const body = (
-    <div className="space-y-4 border-t border-border/70 px-3.5 pt-3.5 pb-4">{children}</div>
-  );
+  const body = <div className="space-y-4 px-4 pt-1 pb-4">{children}</div>;
 
   if (!collapsible) {
     return (
-      <section className={cn('overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]', className)}>
-        <header className="flex items-center gap-2 py-2.5 pr-1.5 pl-3">
-          {header}
+      <section className="border-b border-border last:border-b-0">
+        <header className="flex min-h-11 items-center gap-2 pr-2.5 pl-4">
+          {heading}
+          {metaLabel}
           {resetButton}
         </header>
         {body}
@@ -81,27 +48,24 @@ export function PanelCard({
   }
 
   return (
-    <Collapsible
-      defaultOpen={defaultOpen}
-      className={cn(
-        'group/panel overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]',
-        className,
-      )}
-      asChild
-    >
+    <Collapsible className="group/panel border-b border-border last:border-b-0" asChild>
       <section>
-        <header className="flex items-center gap-2 pr-1.5 pl-3">
-          <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-2 py-2.5 text-left outline-none">
-            {header}
+        <header className="relative">
+          <CollapsibleTrigger className="flex min-h-11 w-full items-center gap-2 pr-3.5 pl-4 text-left transition-colors hover:bg-white/[0.03] focus-visible:-outline-offset-2">
+            {heading}
+            {metaLabel}
+            {onReset && <span aria-hidden="true" className="w-6 shrink-0 pointer-coarse:w-9" />}
             <ChevronDownIcon
-              width={13}
-              height={13}
-              className="shrink-0 text-faint transition-transform duration-200 group-data-[state=open]/panel:rotate-180"
+              width={14}
+              height={14}
+              className="shrink-0 -rotate-90 text-faint transition-transform duration-200 ease-apple group-data-[state=open]/panel:rotate-0"
             />
           </CollapsibleTrigger>
-          {resetButton}
+          {resetButton && (
+            <span className="absolute top-1/2 right-8 -translate-y-1/2">{resetButton}</span>
+          )}
         </header>
-        <CollapsibleContent>{body}</CollapsibleContent>
+        <CollapsibleContent className="animate-disclose overflow-hidden">{body}</CollapsibleContent>
       </section>
     </Collapsible>
   );

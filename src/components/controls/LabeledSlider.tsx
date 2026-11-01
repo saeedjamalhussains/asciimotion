@@ -1,6 +1,5 @@
 import { useId } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { cn } from '@/lib/utils';
 
 interface LabeledSliderProps {
   label: string;
@@ -10,10 +9,7 @@ interface LabeledSliderProps {
   step?: number;
   /** Formatted read-out, e.g. `120 columns`. */
   display?: string;
-  unit?: string;
   defaultValue?: number;
-  hint?: string;
-  disabled?: boolean;
   onChange(value: number): void;
 }
 
@@ -31,33 +27,30 @@ export function LabeledSlider({
   max,
   step = 1,
   display,
-  unit,
   defaultValue,
-  hint,
-  disabled,
   onChange,
 }: LabeledSliderProps) {
   const id = useId();
-  const readout = display ?? `${Number.isInteger(value) ? value : value.toFixed(2)}${unit ?? ''}`;
+  const readout = display ?? `${Number.isInteger(value) ? value : value.toFixed(2)}`;
   const modified = defaultValue !== undefined && Math.abs(value - defaultValue) > 1e-6;
 
   return (
-    <div className={cn('group', disabled && 'pointer-events-none opacity-45')}>
-      <div className="flex items-baseline justify-between gap-3 pb-2">
-        <label htmlFor={id} className="text-[12.5px] text-fg-dim">
+    <div className="group">
+      <div className="flex items-baseline justify-between gap-3 pb-1">
+        <label htmlFor={id} className="text-fg-dim">
           {label}
         </label>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-baseline gap-2">
           {modified && (
             <button
               type="button"
               onClick={() => onChange(defaultValue)}
-              className="eyebrow opacity-0 transition-opacity group-hover:opacity-100 hover:text-fg-dim focus-visible:opacity-100"
+              className="text-footnote text-tint opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100"
             >
-              reset
+              Reset
             </button>
           )}
-          <span className="tabular font-mono text-[12px] text-foreground">{readout}</span>
+          <span className="tabular text-foreground">{readout}</span>
         </div>
       </div>
       <Slider
@@ -66,13 +59,11 @@ export function LabeledSlider({
         max={max}
         step={step}
         value={[value]}
-        disabled={disabled}
         aria-label={label}
         aria-valuetext={readout}
         onValueChange={([next]) => onChange(next)}
         onDoubleClick={() => defaultValue !== undefined && onChange(defaultValue)}
       />
-      {hint && <p className="pt-1.5 text-[11.5px] leading-snug text-faint">{hint}</p>}
     </div>
   );
 }

@@ -29,49 +29,36 @@ export function CharacterSelector({ settings, onChange }: CharacterSelectorProps
 
   return (
     <>
-      <div>
-        <div className="pb-2 text-[12.5px] text-fg-dim">Character set</div>
-        <div className="grid grid-cols-2 gap-1.5">
-          {PRESETS.map((preset) => {
-            const active = settings.charsetId === preset.id;
-            return (
-              <button
-                key={preset.id}
-                type="button"
-                title={preset.hint}
-                aria-pressed={active}
-                onClick={() => onChange({ charsetId: preset.id, charset: preset.ramp })}
-                className={cn(
-                  'rounded-[8px] border px-2.5 py-2 text-left transition-colors duration-150',
-                  active
-                    ? 'border-primary/45 bg-primary-subtle/60'
-                    : 'border-border bg-background hover:border-input hover:bg-muted',
-                )}
-              >
-                <span
-                  className={cn(
-                    'block text-[11.5px] font-medium',
-                    active ? 'text-primary' : 'text-fg-dim',
-                  )}
-                >
-                  {preset.label}
-                </span>
-                <span className="mt-1 block truncate font-mono text-[11px] text-faint">
-                  {rampPreview(preset.ramp, 12)}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div className="grid grid-cols-2 gap-1.5">
+        {PRESETS.map((preset) => {
+          const active = settings.charsetId === preset.id;
+          return (
+            <button
+              key={preset.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange({ charsetId: preset.id, charset: preset.ramp })}
+              className={cn(
+                'press rounded-lg px-2.5 py-1.5 text-left',
+                active ? 'bg-primary/25 ring-1 ring-tint ring-inset' : 'bg-fill hover:bg-muted',
+              )}
+            >
+              <span className="block font-medium text-foreground">{preset.label}</span>
+              <span className="block truncate font-mono text-caption text-muted-foreground">
+                {rampPreview(preset.ramp, 12)}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div>
         <label
           htmlFor="custom-ramp"
-          className="flex items-baseline justify-between gap-3 pb-1.5 text-[12.5px] text-fg-dim"
+          className="flex items-baseline justify-between gap-3 pb-1.5 text-fg-dim"
         >
           Custom ramp
-          <span className="eyebrow">densest first</span>
+          <span className="text-footnote text-faint">Densest first</span>
         </label>
         <input
           id="custom-ramp"
@@ -90,9 +77,8 @@ export function CharacterSelector({ settings, onChange }: CharacterSelectorProps
             }
           }}
           className={cn(
-            'h-9 w-full rounded-[8px] border bg-background px-3 font-mono text-[13px] text-foreground',
-            'transition-colors placeholder:text-faint',
-            settings.charsetId === 'custom' ? 'border-primary/45' : 'border-border hover:border-input',
+            'h-8 w-full rounded-lg bg-fill px-2.5 font-mono text-footnote text-foreground transition-colors placeholder:text-muted-foreground pointer-coarse:h-11',
+            settings.charsetId === 'custom' && 'bg-primary/25 ring-1 ring-tint ring-inset',
           )}
         />
       </div>
@@ -106,7 +92,6 @@ export function CharacterSelector({ settings, onChange }: CharacterSelectorProps
         display={`${settings.resolution} columns`}
         defaultValue={RESOLUTION_STEPS.indexOf(120)}
         onChange={(index) => onChange({ resolution: RESOLUTION_STEPS[index] })}
-        hint="Higher values keep more detail and cost more per frame."
       />
     </>
   );

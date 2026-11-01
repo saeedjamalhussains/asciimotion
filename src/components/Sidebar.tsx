@@ -1,5 +1,4 @@
 import type { UseExport } from '../hooks/useExport';
-import type { LoadFailure } from '../hooks/useLocalFile';
 import {
   ASPECT_PRESETS,
   BACKGROUND_MODES,
@@ -27,11 +26,9 @@ import { LabeledSlider } from './controls/LabeledSlider';
 interface SidebarProps {
   source: FrameSource | null;
   loading: boolean;
-  loadError: LoadFailure | null;
   onFile(file: File): void;
   onDemo(): void;
   onRemove(): void;
-  onDismissError(): void;
 
   settings: EditorSettings;
   onChange(patch: Partial<EditorSettings>): void;
@@ -41,24 +38,12 @@ interface SidebarProps {
   onExportChange(patch: Partial<ExportSettings>): void;
 }
 
-/** Restores a subset of the editor settings to their defaults. */
-function resetKeys(keys: (keyof EditorSettings)[]): Partial<EditorSettings> {
-  const patch: Partial<EditorSettings> = {};
-  for (const key of keys) {
-    // Index assignment across a heterogeneous record needs the cast.
-    (patch as Record<string, unknown>)[key] = DEFAULT_SETTINGS[key];
-  }
-  return patch;
-}
-
 export function Sidebar({
   source,
   loading,
-  loadError,
   onFile,
   onDemo,
   onRemove,
-  onDismissError,
   settings,
   onChange,
   exporter,
@@ -69,34 +54,55 @@ export function Sidebar({
   const fontId =
     FONT_OPTIONS.find((option) => option.stack === settings.fontFamily)?.id ?? FONT_OPTIONS[0].id;
 
+  /** A section offers a reset only while it holds something to reset. */
+  const resetFor = (keys: (keyof EditorSettings)[]) => {
+    const modified = keys.some(
+      (key) => JSON.stringify(settings[key]) !== JSON.stringify(DEFAULT_SETTINGS[key]),
+    );
+    if (!modified) return undefined;
+    return () => {
+      const patch: Partial<EditorSettings> = {};
+      for (const key of keys) {
+        // Index assignment across a heterogeneous record needs the cast.
+        (patch as Record<string, unknown>)[key] = DEFAULT_SETTINGS[key];
+      }
+      onChange(patch);
+    };
+  };
+
   return (
-    <div className="space-y-2">
+    <div>
       <SourceCard
         source={source}
         loading={loading}
-        error={loadError}
         onFile={onFile}
         onDemo={onDemo}
         onRemove={onRemove}
-        onDismissError={onDismissError}
       />
 
       <PanelCard
-        title="Character ramp"
+        title="Characters"
         collapsible={false}
-        onReset={() => onChange(resetKeys(['charset', 'charsetId']))}
+        onReset={resetFor(['charset', 'charsetId', 'resolution'])}
       >
         <CharacterSelector settings={settings} onChange={onChange} />
       </PanelCard>
 
       <PanelCard
-        title="Sampling"
-        onReset={() =>
-          onChange(resetKeys(['resolution', 'fontFamily', 'fontSize', 'letterSpacing', 'lineSpacing']))
-        }
+        title="Type"
+        onReset={resetFor(['fontFamily', 'fontSize', 'letterSpacing', 'lineSpacing'])}
       >
+        <LabeledSelect
+          label="Font"
+          value={fontId}
+          options={FONT_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
+          onChange={(id) => {
+            const option = FONT_OPTIONS.find((item) => item.id === id);
+            if (option) onChange({ fontFamily: option.stack });
+          }}
+        />
         <LabeledSlider
-          label="Font size"
+          label="Size"
           value={settings.fontSize}
           min={6}
           max={28}
@@ -125,70 +131,48 @@ export function Sidebar({
           defaultValue={DEFAULT_SETTINGS.lineSpacing}
           onChange={(lineSpacing) => onChange({ lineSpacing })}
         />
-        <LabeledSelect
-          label="Font"
-          hint="Apple's monospace faces, read from your system. Other platforms fall back to their own."
-          value={fontId}
-          options={FONT_OPTIONS.map((option) => ({ value: option.id, label: option.label }))}
-          onChange={(id) => {
-            const option = FONT_OPTIONS.find((item) => item.id === id);
-            if (option) onChange({ fontFamily: option.stack });
-          }}
-        />
       </PanelCard>
 
       <PanelCard
         title="Tone"
-        onReset={() =>
-          onChange(resetKeys(['brightness', 'contrast', 'gamma', 'exposure', 'sharpness', 'invert']))
-        }
+        onReset={resetFor(['brightness', 'contrast', 'gamma', 'exposure', 'sharpness', 'invert'])}
       >
         <ImageControls settings={settings} onChange={onChange} />
       </PanelCard>
 
       <PanelCard
         title="Colour"
-        onReset={() =>
-          onChange(
-            resetKeys(['colorMode', 'customColor', 'gradient', 'gradientFrom', 'gradientTo']),
-          )
-        }
+        onReset={resetFor(['colorMode', 'customColor', 'gradient', 'gradientFrom', 'gradientTo'])}
       >
         <ColorControls settings={settings} onChange={onChange} />
       </PanelCard>
 
-      <PanelCard title="Frame" onReset={() => onChange(resetKeys(['aspectRatio', 'background']))}>
+      <PanelCard title="Frame" onReset={resetFor(['aspectRatio', 'background'])}>
+        <OptionGroup
+          label="Aspect ratio"
+          value={settings.aspectRatio}
+          options={ASPECT_PRESETS.map((preset) => ({ value: preset.id, label: preset.label }))}
+          onChange={(aspectRatio) => onChange({ aspectRatio: aspectRatio as AspectRatioId })}
+        />
         <div>
-          <div className="pb-1.5 text-[12.5px] text-fg-dim">Aspect ratio</div>
-          <OptionGroup
-            label="Aspect ratio"
-            size="sm"
-            columns={3}
-            value={settings.aspectRatio}
-            options={ASPECT_PRESETS.map((preset) => ({
-              value: preset.id,
-              label: preset.label,
-              sublabel: preset.usage,
-            }))}
-            onChange={(aspectRatio) => onChange({ aspectRatio: aspectRatio as AspectRatioId })}
-          />
-        </div>
-        <div>
-          <div className="pb-1.5 text-[12.5px] text-fg-dim">Background</div>
           <OptionGroup
             label="Background"
-            size="sm"
             value={settings.background}
             options={BACKGROUND_MODES.map((mode) => ({ value: mode.id, label: mode.label }))}
             onChange={(background) => onChange({ background: background as BackgroundMode })}
           />
+          {settings.background === 'transparent' && (
+            <p className="pt-1.5 text-footnote text-muted-foreground">
+              MP4 has no alpha channel, so it exports on black.
+            </p>
+          )}
         </div>
       </PanelCard>
 
       <PanelCard
         title="Effects"
         meta={activeEffects > 0 ? `${activeEffects} on` : undefined}
-        onReset={() => onChange(resetKeys(['effects']))}
+        onReset={resetFor(['effects'])}
       >
         <EffectsPanel settings={settings} onChange={onChange} />
       </PanelCard>

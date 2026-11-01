@@ -5,26 +5,26 @@ import type { EditorSettings } from '../types';
 import type { FrameSource } from '../video/frameSource';
 import { cn } from '@/lib/utils';
 import { IconButton } from './controls/IconButton';
-import { CheckIcon, CopyIcon, ExpandIcon, FitIcon, MinusIcon, PlusIcon } from './ui/Icons';
+import { CheckIcon, CopyIcon, ExpandIcon, MinusIcon, PlusIcon } from './ui/Icons';
 
 const ZOOM_STEPS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4];
 
 interface PreviewStageProps {
   source: FrameSource | null;
   settings: EditorSettings;
-  /** Rendered over the stage — used for the drag-and-drop overlay. */
-  overlay?: React.ReactNode;
   emptyState?: React.ReactNode;
+  /** The element that goes fullscreen, so the transport comes along. */
+  fullscreenRef: React.RefObject<HTMLElement | null>;
 }
 
 /**
- * The main stage: a titled surface holding the ASCII raster, with zoom and
- * frame actions in the corners.
+ * The stage: the ASCII raster on black, filling everything behind the floating
+ * chrome. Padding keeps the fitted raster clear of the chrome, while a zoomed
+ * one scrolls underneath it.
  */
-export function PreviewStage({ source, settings, overlay, emptyState }: PreviewStageProps) {
+export function PreviewStage({ source, settings, emptyState, fullscreenRef }: PreviewStageProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<AsciiRenderer | null>(null);
   const [zoom, setZoom] = useState<ZoomMode>('fit');
   const [copied, setCopied] = useState(false);
@@ -57,38 +57,19 @@ export function PreviewStage({ source, settings, overlay, emptyState }: PreviewS
   }, []);
 
   const toggleFullscreen = useCallback(() => {
-    const card = cardRef.current;
-    if (!card) return;
+    const target = fullscreenRef.current;
+    if (!target) return;
     if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
-    else void card.requestFullscreen?.().catch(() => undefined);
-  }, []);
+    else void target.requestFullscreen?.().catch(() => undefined);
+  }, [fullscreenRef]);
 
   return (
-    <div
-      ref={cardRef}
-      className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]"
-    >
-      <header className="flex shrink-0 items-center gap-3 px-3 py-2.5">
-        <span className="panel-heading">Preview</span>
-        <div className="ml-auto flex items-center gap-0.5">
-          <IconButton
-            label={copied ? 'Frame copied' : 'Copy this frame as text'}
-            size="sm"
-            onClick={copyText}
-            disabled={!source}
-          >
-            {copied ? <CheckIcon width={14} height={14} /> : <CopyIcon width={14} height={14} />}
-          </IconButton>
-          <IconButton label="Toggle fullscreen" size="sm" onClick={toggleFullscreen}>
-            <ExpandIcon width={14} height={14} />
-          </IconButton>
-        </div>
-      </header>
-
+    <>
       <div
         ref={stageRef}
         className={cn(
-          'relative flex min-h-0 flex-1 items-center justify-center border-t border-border p-3',
+          // Below lg the zoom pill gets its own band, as the artwork has no room to spare.
+          'absolute inset-0 flex items-center-safe justify-center-safe px-3 pt-[calc(3.5rem+env(safe-area-inset-top))] pb-[calc(var(--chrome-bottom,0px)+3.25rem)] lg:pb-[calc(var(--chrome-bottom,0px)+0.75rem)]',
           // Panning space once the raster is larger than the stage.
           zoom === 'fit' ? 'overflow-hidden' : 'overflow-auto',
           settings.background === 'transparent' ? 'checkerboard' : 'bg-sunken',
@@ -107,56 +88,50 @@ export function PreviewStage({ source, settings, overlay, emptyState }: PreviewS
           )}
         />
         {!source && emptyState}
-        {overlay}
       </div>
 
-      {/* Zoom controls, anchored to the stage corners. */}
       {source && (
-        <>
-          <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setZoom((current) => (current === 'fit' ? 1 : 'fit'))}
-              title={zoom === 'fit' ? 'Zoom to 100%' : 'Fit to stage'}
-              className="pointer-events-auto rounded-[6px] border border-border bg-background/80 px-2 py-1 font-mono tabular text-[10.5px] text-fg-dim backdrop-blur-sm transition-colors hover:text-foreground"
-            >
-              {percent}%
-            </button>
-            {zoom !== 'fit' && (
-              <button
-                type="button"
-                onClick={() => setZoom('fit')}
-                title="Fit to stage"
-                aria-label="Fit to stage"
-                className="pointer-events-auto rounded-[6px] border border-border bg-background/80 p-1.5 text-fg-dim backdrop-blur-sm transition-colors hover:text-foreground"
-              >
-                <FitIcon width={13} height={13} />
-              </button>
+        <div className="glass-chip absolute right-[max(0.5rem,env(safe-area-inset-right))] bottom-[calc(var(--chrome-bottom,0px)+0.25rem)] z-10 flex items-center rounded-full p-0.5 lg:right-3">
+          <IconButton label="Zoom out" size="md" className="rounded-full" onClick={() => stepZoom(-1)}>
+            <MinusIcon width={14} height={14} />
+          </IconButton>
+          <button
+            type="button"
+            onClick={() => setZoom((current) => (current === 'fit' ? 1 : 'fit'))}
+            title={zoom === 'fit' ? 'Zoom to 100%' : 'Fit to stage'}
+            className="press tabular h-7 w-10 text-center text-footnote text-foreground pointer-coarse:h-10"
+          >
+            {zoom === 'fit' ? 'Fit' : `${percent}%`}
+          </button>
+          <IconButton label="Zoom in" size="md" className="rounded-full" onClick={() => stepZoom(1)}>
+            <PlusIcon width={14} height={14} />
+          </IconButton>
+          <span aria-hidden="true" className="mx-0.5 h-4 w-px bg-white/15" />
+          <IconButton
+            label={copied ? 'Frame copied' : 'Copy this frame as text'}
+            size="md"
+            className="rounded-full"
+            onClick={copyText}
+          >
+            {copied ? (
+              <CheckIcon width={14} height={14} className="text-tint" />
+            ) : (
+              <CopyIcon width={14} height={14} />
             )}
-          </div>
-
-          <div className="pointer-events-auto absolute right-3 bottom-3 flex flex-col overflow-hidden rounded-[6px] border border-border bg-background/80 backdrop-blur-sm">
-            <button
-              type="button"
-              onClick={() => stepZoom(1)}
-              aria-label="Zoom in"
-              title="Zoom in"
-              className="p-1.5 text-fg-dim transition-colors hover:bg-muted hover:text-foreground"
+          </IconButton>
+          {/* iPhone Safari has no element fullscreen, so offer nothing that cannot work. */}
+          {document.fullscreenEnabled && (
+            <IconButton
+              label="Toggle fullscreen"
+              size="md"
+              className="rounded-full"
+              onClick={toggleFullscreen}
             >
-              <PlusIcon width={13} height={13} />
-            </button>
-            <button
-              type="button"
-              onClick={() => stepZoom(-1)}
-              aria-label="Zoom out"
-              title="Zoom out"
-              className="border-t border-border p-1.5 text-fg-dim transition-colors hover:bg-muted hover:text-foreground"
-            >
-              <MinusIcon width={13} height={13} />
-            </button>
-          </div>
-        </>
+              <ExpandIcon width={14} height={14} />
+            </IconButton>
+          )}
+        </div>
       )}
-    </div>
+    </>
   );
 }

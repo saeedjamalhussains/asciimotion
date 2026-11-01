@@ -31,6 +31,8 @@ const MAX_PREVIEW_DIMENSION = 2048;
  */
 const MIN_USABLE_BOX = 32;
 
+const RESIZE_SETTLE_MS = 120;
+
 /**
  * Drives the live ASCII preview.
  *
@@ -64,22 +66,31 @@ export function useAsciiRenderer(
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    // CSS keeps the canvas fitted on every frame of a resize. Only the raster's
+    // sharpness waits, so a moving sheet or rail never rebuilds it per frame.
+    let settle = 0;
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
-      const { width, height } = entry.contentRect;
-      if (width >= MIN_USABLE_BOX && height >= MIN_USABLE_BOX) {
-        boxRef.current = { width, height };
-      }
-      // Re-measure on the next render even if this reading was rejected.
-      dirtyRef.current = true;
+      window.clearTimeout(settle);
+      settle = window.setTimeout(() => {
+        const { width, height } = entry.contentRect;
+        if (width >= MIN_USABLE_BOX && height >= MIN_USABLE_BOX) {
+          boxRef.current = { width, height };
+        }
+        // Re-measure on the next render even if this reading was rejected.
+        dirtyRef.current = true;
+      }, RESIZE_SETTLE_MS);
     });
     observer.observe(container);
     const rect = container.getBoundingClientRect();
     if (rect.width >= MIN_USABLE_BOX && rect.height >= MIN_USABLE_BOX) {
       boxRef.current = { width: rect.width, height: rect.height };
     }
-    return () => observer.disconnect();
+    return () => {
+      window.clearTimeout(settle);
+      observer.disconnect();
+    };
   }, [containerRef]);
 
   useEffect(() => {

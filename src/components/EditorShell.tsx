@@ -1,20 +1,22 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useExport } from '../hooks/useExport';
+import { useFilePicker } from '../hooks/useFilePicker';
 import type { LoadFailure } from '../hooks/useLocalFile';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import { useTimeline } from '../hooks/useTimeline';
 import { useVideo } from '../hooks/useVideo';
-import { DEFAULT_EXPORT_SETTINGS, DEFAULT_SETTINGS } from '../state/settings';
+import { DEFAULT_SETTINGS } from '../state/settings';
 import type { EditorSettings, ExportSettings } from '../types';
 import type { FrameSource } from '../video/frameSource';
 import { cn } from '@/lib/utils';
-import { fileFromDataTransfer } from '../utils/fileHandling';
+import { fileFromDataTransfer, SUPPORTED_LABEL } from '../utils/fileHandling';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { ControlsSheet, type ControlsSheetHandle } from './ControlsSheet';
 import { PreviewStage } from './PreviewStage';
 import { Sidebar } from './Sidebar';
 import { Timeline } from './Timeline';
 import { Button } from '@/components/ui/button';
-import { IconButton } from './controls/IconButton';
-import { DownloadIcon, RestoreIcon, SlidersIcon, UploadIcon } from './ui/Icons';
+import { AlertIcon, DownloadIcon, RestoreIcon, UploadIcon } from './ui/Icons';
 
 const RAIL_MIN = 280;
 const RAIL_MAX = 640;
@@ -28,11 +30,18 @@ interface EditorShellProps {
   onDemo(): void;
   onRemove(): void;
   onDismissError(): void;
+  settings: EditorSettings;
+  onSettingsChange: React.Dispatch<React.SetStateAction<EditorSettings>>;
+  exportSettings: ExportSettings;
+  onExportSettingsChange: React.Dispatch<React.SetStateAction<ExportSettings>>;
+  /** What the main Reset replaced, while it can still be undone. */
+  resetFrom: EditorSettings | null;
+  onResetFromChange(settings: EditorSettings | null): void;
 }
 
 /**
- * The whole application: a header of global actions, a stage carrying the
- * preview and transport, and a rail of control cards.
+ * The whole application: a full-bleed stage with its chrome floating on top,
+ * and the controls in a rail beside it, or in a sheet on small screens.
  */
 export function EditorShell({
   source,
@@ -43,16 +52,29 @@ export function EditorShell({
   onDemo,
   onRemove,
   onDismissError,
+  settings,
+  onSettingsChange: setSettings,
+  exportSettings: chosenExportSettings,
+  onExportSettingsChange: setExportSettings,
+  resetFrom,
+  onResetFromChange: setResetFrom,
 }: EditorShellProps) {
-  const [settings, setSettings] = useState<EditorSettings>(DEFAULT_SETTINGS);
-  const [exportSettings, setExportSettings] = useState<ExportSettings>(DEFAULT_EXPORT_SETTINGS);
   const [dragging, setDragging] = useState(false);
-  const [railOpen, setRailOpen] = useState(false);
   const dragDepth = useRef(0);
   const railRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const sheetRef = useRef<ControlsSheetHandle>(null);
   const [railWidth, setRailWidth] = useState<number | null>(null);
+  const resizeGrab = useRef<number | null>(null);
   const [resizing, setResizing] = useState(false);
+  const wide = useMediaQuery('(min-width: 1024px)');
+
+  const modified = useMemo(
+    () => JSON.stringify(settings) !== JSON.stringify(DEFAULT_SETTINGS),
+    [settings],
+  );
 
   const clampRail = useCallback((width: number) => {
     const available = bodyRef.current?.clientWidth ?? 1200;
@@ -60,9 +82,9 @@ export function EditorShell({
   }, []);
 
   const onResizeMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!resizing || !bodyRef.current) return;
+    if (resizeGrab.current === null || !bodyRef.current) return;
     const right = bodyRef.current.getBoundingClientRect().right;
-    setRailWidth(clampRail(right - event.clientX));
+    setRailWidth(clampRail(right - event.clientX + resizeGrab.current));
   };
 
   const onResizeKey = (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -74,24 +96,44 @@ export function EditorShell({
     event.preventDefault();
   };
 
+  // A clip with no audio exports silently, without forgetting the choice for the
+  // next clip that has some.
+  const hasAudio = source?.info.hasAudio ?? false;
+  const exportSettings = useMemo(
+    () => ({
+      ...chosenExportSettings,
+      includeAudio: chosenExportSettings.includeAudio && hasAudio,
+    }),
+    [chosenExportSettings, hasAudio],
+  );
+
   const timeline = useTimeline(source?.info.duration ?? 0);
   const transport = useVideo(source, timeline.trim);
   const exporter = useExport(source, file, settings, exportSettings, timeline.trim);
 
   const patch = useCallback(
     (next: Partial<EditorSettings>) => setSettings((current) => ({ ...current, ...next })),
-    [],
+    [setSettings],
   );
   const patchExport = useCallback(
     (next: Partial<ExportSettings>) => setExportSettings((current) => ({ ...current, ...next })),
-    [],
+    [setExportSettings],
   );
 
-  // A clip with no audio must not offer to keep it.
+  // Tells the stage how much of itself the floating transport covers.
   useEffect(() => {
-    if (!source?.info.hasAudio) {
-      setExportSettings((current) => ({ ...current, includeAudio: false }));
+    const main = mainRef.current;
+    const chrome = chromeRef.current;
+    if (!main) return;
+    if (!chrome) {
+      main.style.removeProperty('--chrome-bottom');
+      return;
     }
+    const observer = new ResizeObserver(() => {
+      main.style.setProperty('--chrome-bottom', `${chrome.offsetHeight + 12}px`);
+    });
+    observer.observe(chrome);
+    return () => observer.disconnect();
   }, [source]);
 
   // Drag and drop anywhere in the window.
@@ -143,6 +185,14 @@ export function EditorShell({
       }
       if (event.metaKey || event.ctrlKey || event.altKey || !source) return;
 
+      // A focused control keeps the keys it already answers to.
+      if (
+        (event.key === ' ' || event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+        target?.closest('button, [role="slider"], [role="radio"], [role="combobox"], [role="separator"]')
+      ) {
+        return;
+      }
+
       switch (event.key) {
         case ' ':
         case 'k':
@@ -182,164 +232,219 @@ export function EditorShell({
   }, [transport, timeline, source]);
 
   const jumpToExport = () => {
-    setRailOpen(true);
+    sheetRef.current?.expand();
     transport.pause();
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.requestAnimationFrame(() => {
-      railRef.current?.scrollTo({ top: railRef.current.scrollHeight, behavior: 'smooth' });
+      railRef.current?.scrollTo({
+        top: railRef.current.scrollHeight,
+        behavior: reduced ? 'auto' : 'smooth',
+      });
     });
   };
 
-  return (
-    <div className="flex min-h-full flex-col gap-2 bg-background p-2 sm:p-3 lg:h-full lg:overflow-hidden">
-      {/* ------------------------------------------------------------ Header */}
-      <header className="flex h-11 shrink-0 items-center gap-2 px-1">
-        <span className="flex items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="flex h-6 w-6 items-center justify-center rounded-[7px] bg-gradient-to-br from-primary to-[#b18cff] font-mono text-[11px] leading-none font-bold text-primary-foreground shadow-[0_6px_16px_-6px_color-mix(in_srgb,var(--primary)_80%,transparent)]"
-          >
-            &gt;_
-          </span>
-          <span className="font-mono text-[12px] font-semibold tracking-[0.14em] whitespace-nowrap uppercase">
-            ASCII<span className="text-primary"> Motion</span>
-          </span>
-        </span>
+  const setSheetInset = useCallback((pixels: number) => {
+    mainRef.current?.style.setProperty('--sheet-inset', `${pixels}px`);
+  }, []);
 
-        <div className="ml-auto flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setSettings(DEFAULT_SETTINGS)}
-            className="flex items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <RestoreIcon width={13} height={13} />
-            <span className="hidden sm:inline">Reset</span>
-          </button>
-          <button
-            type="button"
-            aria-pressed={settings.invert}
-            onClick={() => patch({ invert: !settings.invert })}
-            className={cn(
-              'flex items-center gap-1.5 rounded-[7px] px-2 py-1.5 text-[12px] transition-colors',
-              settings.invert
-                ? 'bg-primary-subtle text-primary'
-                : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+  const pickFile = useCallback(
+    (picked: File) => {
+      onDismissError();
+      onFile(picked);
+    },
+    [onDismissError, onFile],
+  );
+
+  const sidebar = (
+    <Sidebar
+      source={source}
+      loading={loading}
+      onFile={pickFile}
+      onDemo={onDemo}
+      onRemove={onRemove}
+      settings={settings}
+      onChange={patch}
+      exporter={exporter}
+      exportSettings={exportSettings}
+      onExportChange={patchExport}
+    />
+  );
+
+  return (
+    <div ref={bodyRef} className="flex h-dvh bg-background">
+      <main
+        ref={mainRef}
+        className="am-stage relative h-[calc(100dvh-var(--sheet-inset,0px))] min-w-0 flex-1 overflow-hidden bg-sunken lg:h-full"
+      >
+        <PreviewStage
+          source={source}
+          settings={settings}
+          emptyState={<EmptyStage loading={loading} onFile={pickFile} onDemo={onDemo} />}
+          fullscreenRef={mainRef}
+        />
+
+        {/* Fades the artwork out behind the floating title when zoomed in. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-[calc(4rem+env(safe-area-inset-top))] bg-gradient-to-b from-black/70 to-transparent"
+        />
+
+        <header className="absolute inset-x-0 top-[env(safe-area-inset-top)] z-10 flex h-13 items-center gap-2 pr-[max(0.5rem,env(safe-area-inset-right))] pl-[max(1rem,env(safe-area-inset-left))] lg:pr-3">
+          <h1 className="text-title font-semibold whitespace-nowrap">ASCII Motion</h1>
+
+          <div className="ml-auto flex items-center gap-1.5">
+            {(modified || resetFrom) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="glass-chip rounded-full"
+                onClick={() => {
+                  if (modified) {
+                    setResetFrom(settings);
+                    setSettings(DEFAULT_SETTINGS);
+                  } else if (resetFrom) {
+                    setSettings(resetFrom);
+                    setResetFrom(null);
+                  }
+                }}
+              >
+                <RestoreIcon />
+                {modified ? 'Reset' : 'Undo Reset'}
+              </Button>
             )}
+            <Button size="sm" className="rounded-full" onClick={jumpToExport} disabled={!source}>
+              <DownloadIcon />
+              Export
+            </Button>
+          </div>
+        </header>
+
+        {loadError && (
+          <div
+            role="alert"
+            className="glass animate-materialize absolute inset-x-2 top-[calc(3.25rem+env(safe-area-inset-top))] z-20 mx-auto flex max-w-md items-start gap-2 rounded-xl p-3"
+          >
+            <AlertIcon width={15} height={15} className="mt-px shrink-0 text-destructive" />
+            <div className="min-w-0 flex-1">
+              <p className="font-medium text-foreground">{loadError.reason}</p>
+              <p className="pt-0.5 text-footnote text-fg-dim">{loadError.hint}</p>
+            </div>
+            <Button variant="ghost" size="sm" onClick={onDismissError}>
+              Dismiss
+            </Button>
+          </div>
+        )}
+
+        {source && (
+          <div
+            ref={chromeRef}
+            className="absolute right-[max(0.5rem,env(safe-area-inset-right))] bottom-2 left-[max(0.5rem,env(safe-area-inset-left))] z-10 lg:right-3 lg:bottom-3 lg:left-3"
+          >
+            <Timeline source={source} transport={transport} timeline={timeline} />
+          </div>
+        )}
+
+        {dragging && <DropOverlay />}
+      </main>
+
+      {wide ? (
+        <>
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize preview and controls"
+            aria-valuenow={railWidth ?? undefined}
+            tabIndex={0}
+            title="Drag to resize · double-click to reset"
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              const edge = railRef.current?.parentElement?.getBoundingClientRect().left;
+              resizeGrab.current = edge === undefined ? 0 : event.clientX - edge;
+              setResizing(true);
+            }}
+            onPointerMove={onResizeMove}
+            onPointerUp={() => {
+              resizeGrab.current = null;
+              setResizing(false);
+            }}
+            onPointerCancel={() => {
+              resizeGrab.current = null;
+              setResizing(false);
+            }}
+            onDoubleClick={() => setRailWidth(null)}
+            onKeyDown={onResizeKey}
+            className="group relative z-20 -mx-1 w-2 shrink-0 cursor-col-resize touch-none"
           >
             <span
               aria-hidden="true"
-              className="h-3 w-3 rounded-full border border-current bg-[linear-gradient(90deg,currentColor_50%,transparent_50%)]"
-            />
-            <span className="hidden sm:inline">Invert</span>
-          </button>
-
-          <span className="lg:hidden">
-            <IconButton label="Show controls" onClick={() => setRailOpen((v) => !v)} active={railOpen}>
-              <SlidersIcon width={16} height={16} />
-            </IconButton>
-          </span>
-
-          <Button size="sm" onClick={jumpToExport} disabled={!source}>
-            <DownloadIcon width={14} height={14} />
-            Export
-          </Button>
-        </div>
-      </header>
-
-      {/* -------------------------------------------------------------- Body */}
-        {/* Below lg the page flows naturally; from lg it becomes a fixed-height
-          two-column workspace. */}
-      <div ref={bodyRef} className="flex min-h-0 flex-col gap-2 lg:flex-1 lg:flex-row">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col gap-2">
-          <div className="flex min-h-[46vh] flex-col sm:min-h-[52vh] lg:min-h-0 lg:flex-1">
-            <PreviewStage
-              source={source}
-              settings={settings}
-              emptyState={<EmptyStage loading={loading} />}
-              overlay={dragging ? <DropOverlay /> : null}
+              className={cn(
+                'absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-border transition-colors group-hover:bg-tint group-focus-visible:bg-tint',
+                resizing && 'bg-tint',
+              )}
             />
           </div>
-          {source && <Timeline source={source} transport={transport} timeline={timeline} />}
-        </main>
 
-        <div
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize preview and controls"
-          aria-valuenow={railWidth ?? undefined}
-          tabIndex={0}
-          title="Drag to resize · double-click to reset"
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setResizing(true);
-          }}
-          onPointerMove={onResizeMove}
-          onPointerUp={() => setResizing(false)}
-          onPointerCancel={() => setResizing(false)}
-          onDoubleClick={() => setRailWidth(null)}
-          onKeyDown={onResizeKey}
-          className="group hidden w-2 shrink-0 -mx-2 cursor-col-resize touch-none items-center justify-center outline-none lg:flex"
-        >
-          <span
-            aria-hidden="true"
-            className={cn(
-              'h-12 w-0.5 rounded-full bg-border transition-colors group-hover:bg-primary group-focus-visible:bg-primary',
-              resizing && 'bg-primary',
-            )}
-          />
-        </div>
-
-        <aside
-          aria-label="Controls"
-          style={railWidth ? ({ '--rail-w': `${railWidth}px` } as React.CSSProperties) : undefined}
-          className={cn(
-            'w-full min-w-0 shrink-0 lg:w-[var(--rail-w,336px)] xl:w-[var(--rail-w,368px)]',
-            !railOpen && 'hidden lg:block',
-          )}
-        >
-          <ScrollArea viewportRef={railRef} className="lg:h-full" type="hover">
-          <Sidebar
-            source={source}
-            loading={loading}
-            loadError={loadError}
-            onFile={onFile}
-            onDemo={onDemo}
-            onRemove={onRemove}
-            onDismissError={onDismissError}
-            settings={settings}
-            onChange={patch}
-            exporter={exporter}
-            exportSettings={exportSettings}
-            onExportChange={patchExport}
-          />
-          </ScrollArea>
-        </aside>
-      </div>
-
+          <aside
+            aria-label="Controls"
+            style={railWidth ? ({ '--rail-w': `${railWidth}px` } as React.CSSProperties) : undefined}
+            className="h-full w-[var(--rail-w,21rem)] min-w-0 shrink-0 bg-card xl:w-[var(--rail-w,23rem)]"
+          >
+            <ScrollArea viewportRef={railRef} className="h-full" type="hover">
+              {sidebar}
+            </ScrollArea>
+          </aside>
+        </>
+      ) : (
+        <ControlsSheet onInset={setSheetInset} viewportRef={railRef} handleRef={sheetRef}>
+          {sidebar}
+        </ControlsSheet>
+      )}
     </div>
   );
 }
 
-function EmptyStage({ loading }: { loading: boolean }) {
-  return (
-    <div className="flex flex-col items-center gap-3 px-6 text-center">
-      <pre className="font-mono text-[12px] leading-tight text-faint select-none">
-        {'  .:-=+*#%@  \n  @%#*+=-:.  '}
-      </pre>
-      <p className="text-[14px] text-fg-dim">
-        {loading ? 'Preparing your video…' : 'Drop a video to begin'}
+function EmptyStage({
+  loading,
+  onFile,
+  onDemo,
+}: {
+  loading: boolean;
+  onFile(file: File): void;
+  onDemo(): void;
+}) {
+  const picker = useFilePicker(onFile);
+
+  if (loading) {
+    return (
+      <p role="status" className="flex items-center gap-2 text-fg-dim">
+        <span className="block size-4 animate-spin rounded-full border-2 border-input border-t-tint" />
+        Preparing your video…
       </p>
-      {!loading && (
-        <p className="text-[12px] text-faint">or use the Source panel to browse or load the demo</p>
-      )}
+    );
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-4 px-6 text-center">
+      {picker.input}
+      <div>
+        <h2 className="text-display font-semibold">Drop a video to begin</h2>
+        <p className="pt-1 text-muted-foreground">{SUPPORTED_LABEL}</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Button onClick={picker.open}>Choose Video…</Button>
+        <Button variant="secondary" onClick={onDemo}>
+          Try the Demo
+        </Button>
+      </div>
     </div>
   );
 }
 
 function DropOverlay() {
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center rounded-[8px] border-2 border-dashed border-primary bg-primary-subtle/40 backdrop-blur-[2px]">
-      <p className="flex items-center gap-2 text-[14px] font-medium text-primary">
-        <UploadIcon width={17} height={17} />
+    <div className="glass animate-materialize absolute inset-3 z-20 flex items-center justify-center rounded-2xl outline-2 -outline-offset-2 outline-tint outline-dashed">
+      <p className="flex items-center gap-2 text-title font-semibold">
+        <UploadIcon width={18} height={18} />
         Release to load
       </p>
     </div>

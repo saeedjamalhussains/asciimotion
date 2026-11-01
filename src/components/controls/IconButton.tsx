@@ -30,11 +30,7 @@ export function IconButton({
           size={SIZES[size]}
           aria-label={label}
           aria-pressed={active}
-          className={cn(
-            'text-muted-foreground hover:text-foreground',
-            active && 'bg-primary/15 text-primary hover:text-primary',
-            className,
-          )}
+          className={cn(active && 'text-tint hover:text-tint', className)}
           {...props}
         >
           {children}

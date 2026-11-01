@@ -9,9 +9,8 @@ import type {
 export interface CharsetPreset {
   id: string;
   label: string;
-  /** Ordered dark -> light. */
+  /** Ordered densest glyph first. */
   ramp: string;
-  hint: string;
 }
 
 /**
@@ -26,27 +25,24 @@ export const CHARSET_PRESETS: CharsetPreset[] = [
     id: 'standard',
     label: 'Standard',
     ramp: '@#S%?*+;:,. ',
-    hint: 'Balanced classic ramp',
   },
   {
     id: 'dense',
     label: 'Dense',
     ramp: '$@B%8&WM#*oahkbdpqwmZO0QLCJUYXzcvunxrjft/\\|()1{}[]?-_+~<>i!lI;:,^`\'. ',
-    hint: '69 steps of tonal detail',
   },
-  { id: 'minimal', label: 'Minimal', ramp: '#:. ', hint: 'Four tones, very graphic' },
-  { id: 'binary', label: 'Binary', ramp: '01', hint: 'Only ones and zeroes' },
-  { id: 'dots', label: 'Dots', ramp: '•· ', hint: 'Two-weight stipple' },
-  { id: 'blocks', label: 'Blocks', ramp: '█▓▒░ ', hint: 'Solid block shading' },
-  { id: 'terminal', label: 'Terminal', ramp: '@$#*:. ', hint: 'Classic console glyphs' },
+  { id: 'minimal', label: 'Minimal', ramp: '#:. ' },
+  { id: 'binary', label: 'Binary', ramp: '01' },
+  { id: 'dots', label: 'Dots', ramp: '•· ' },
+  { id: 'blocks', label: 'Blocks', ramp: '█▓▒░ ' },
+  { id: 'terminal', label: 'Terminal', ramp: '@$#*:. ' },
   {
     id: 'braille',
     label: 'Braille',
     // U+2800 block ordered by falling dot count, matching the dense-first convention.
     ramp: '⣿⡿⡟⡏⡇⠇⠃⠁⠀',
-    hint: 'Unicode braille density ramp',
   },
-  { id: 'custom', label: 'Custom', ramp: '', hint: 'Bring your own ramp' },
+  { id: 'custom', label: 'Custom', ramp: '' },
 ];
 
 export interface FontOption {
@@ -110,33 +106,30 @@ export const BACKGROUND_MODES: { id: BackgroundMode; label: string }[] = [
 export interface AspectPreset {
   id: AspectRatioId;
   label: string;
-  /** Marketing-friendly nickname shown under the label. */
-  usage: string;
   ratio: number | null;
 }
 
 export const ASPECT_PRESETS: AspectPreset[] = [
-  { id: 'original', label: 'Original', usage: 'Source', ratio: null },
-  { id: '16:9', label: '16 : 9', usage: 'YouTube', ratio: 16 / 9 },
-  { id: '9:16', label: '9 : 16', usage: 'TikTok / Reels', ratio: 9 / 16 },
-  { id: '1:1', label: '1 : 1', usage: 'Square', ratio: 1 },
-  { id: '4:3', label: '4 : 3', usage: 'Classic', ratio: 4 / 3 },
+  { id: 'original', label: 'Original', ratio: null },
+  { id: '16:9', label: '16:9', ratio: 16 / 9 },
+  { id: '9:16', label: '9:16', ratio: 9 / 16 },
+  { id: '1:1', label: '1:1', ratio: 1 },
+  { id: '4:3', label: '4:3', ratio: 4 / 3 },
 ];
 
 export const EFFECT_META: {
   id: keyof EditorSettings['effects'];
   label: string;
-  description: string;
 }[] = [
-  { id: 'crt', label: 'CRT', description: 'Phosphor mask, vignette and bloom' },
-  { id: 'scanlines', label: 'Scanlines', description: 'Horizontal raster lines' },
-  { id: 'vhs', label: 'VHS', description: 'Chroma bleed and tracking bands' },
-  { id: 'noise', label: 'Noise', description: 'Film-grain speckle' },
-  { id: 'flicker', label: 'Flicker', description: 'Unstable frame brightness' },
-  { id: 'glitch', label: 'Glitch', description: 'Sliced RGB displacement' },
-  { id: 'glow', label: 'Glow', description: 'Soft phosphor bloom' },
-  { id: 'matrix', label: 'Matrix', description: 'Falling column highlights' },
-  { id: 'dither', label: 'Dither', description: 'Ordered Bayer tone steps' },
+  { id: 'crt', label: 'CRT' },
+  { id: 'scanlines', label: 'Scanlines' },
+  { id: 'vhs', label: 'VHS' },
+  { id: 'noise', label: 'Noise' },
+  { id: 'flicker', label: 'Flicker' },
+  { id: 'glitch', label: 'Glitch' },
+  { id: 'glow', label: 'Glow' },
+  { id: 'matrix', label: 'Matrix' },
+  { id: 'dither', label: 'Dither' },
 ];
 
 export const DEFAULT_SETTINGS: EditorSettings = {

@@ -1,4 +1,5 @@
 import type { TrimRange } from '../types';
+import { formatTime } from '../utils/formatTime';
 
 /** Maps between timeline pixels and media time. */
 export function timeToRatio(time: number, duration: number): number {
@@ -40,6 +41,11 @@ export function buildTicks(duration: number, targetTicks: number): number[] {
     ticks.push(Number((index * interval).toFixed(3)));
   }
   return ticks;
+}
+
+/** Ruler label. Sub-second spacing gets decimals, or neighbouring ticks would read the same. */
+export function formatTick(tick: number, interval: number): string {
+  return interval < 1 ? `${tick}s` : formatTime(tick);
 }
 
 export function describeTrim(range: TrimRange): string {

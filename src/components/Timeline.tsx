@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TimelineState } from '../hooks/useTimeline';
 import { PLAYBACK_RATES, type VideoTransport } from '../hooks/useVideo';
 import type { FrameSource } from '../video/frameSource';
-import { buildTicks, ratioFromPointer } from '../video/timeline';
+import { buildTicks, formatTick, ratioFromPointer, tickInterval } from '../video/timeline';
 import { startFrameLoop } from '../utils/frameLoop';
 import { MIN_TRIM_DURATION } from '../video/trim';
 import { cn } from '@/lib/utils';
 import { formatTime } from '../utils/formatTime';
+import { Button } from '@/components/ui/button';
+import { Slider } from '@/components/ui/slider';
 import { TrimControls } from './TrimControls';
 import { IconButton } from './controls/IconButton';
 import { LoopIcon, MuteIcon, PauseIcon, PlayIcon, RestartIcon, VolumeIcon } from './ui/Icons';
@@ -16,6 +18,8 @@ interface TimelineProps {
   transport: VideoTransport;
   timeline: TimelineState;
 }
+
+const RULER_TICKS = 6;
 
 type DragTarget = 'playhead' | 'start' | 'end' | null;
 
@@ -29,8 +33,9 @@ type DragTarget = 'playhead' | 'start' | 'end' | null;
 export function Timeline({ source, transport, timeline }: TimelineProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
-  const progressRef = useRef<HTMLDivElement>(null);
   const timeLabelRef = useRef<HTMLSpanElement>(null);
+  /** Where on the handle it was grabbed, so taking hold of it does not nudge it. */
+  const grabOffsetRef = useRef(0);
   const [dragging, setDragging] = useState<DragTarget>(null);
   const draggingRef = useRef<DragTarget>(null);
   const [showVolume, setShowVolume] = useState(false);
@@ -52,7 +57,6 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
         lastRatio = ratio;
         const percent = `${ratio * 100}%`;
         if (playheadRef.current) playheadRef.current.style.left = percent;
-        if (progressRef.current) progressRef.current.style.width = percent;
         trackRef.current?.setAttribute('aria-valuenow', time.toFixed(2));
       }
       const label = formatTime(time);
@@ -71,7 +75,7 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
     (clientX: number, target: DragTarget) => {
       const track = trackRef.current;
       if (!track || duration <= 0) return;
-      const ratio = ratioFromPointer(clientX, track.getBoundingClientRect());
+      const ratio = ratioFromPointer(clientX - grabOffsetRef.current, track.getBoundingClientRect());
       const time = ratio * duration;
       if (target === 'start') {
         timeline.setStart(Math.min(time, trimRef.current.end - MIN_TRIM_DURATION));
@@ -88,6 +92,11 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
     event.preventDefault();
     event.stopPropagation();
     (event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId);
+    grabOffsetRef.current = 0;
+    if (target === 'start' || target === 'end') {
+      const rect = event.currentTarget.getBoundingClientRect();
+      grabOffsetRef.current = event.clientX - (rect.left + rect.width / 2);
+    }
     draggingRef.current = target;
     setDragging(target);
     applyPointer(event.clientX, target);
@@ -115,7 +124,12 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
 
   const startRatio = duration > 0 ? trim.start / duration : 0;
   const endRatio = duration > 0 ? trim.end / duration : 1;
-  const ticks = buildTicks(duration, 10);
+  const ticks = buildTicks(duration, RULER_TICKS);
+  const tickSpacing = tickInterval(duration, RULER_TICKS);
+  const cycleRate = () => {
+    const index = PLAYBACK_RATES.indexOf(transport.rate as (typeof PLAYBACK_RATES)[number]);
+    transport.setRate(PLAYBACK_RATES[(index + 1) % PLAYBACK_RATES.length]);
+  };
 
   const onTrackKeyDown = (event: React.KeyboardEvent) => {
     const step = event.shiftKey ? 1 : 1 / 30;
@@ -157,123 +171,120 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
     else timeline.setEnd(trim.end + delta);
   };
 
+  const handleBar = cn(
+    'absolute inset-y-0.5 left-1/2 w-1 -translate-x-1/2 rounded-full transition-colors',
+    timeline.trimmed ? 'bg-trim' : 'bg-white/50',
+  );
+
   return (
-    <div className="shrink-0 overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_10px_28px_-18px_rgba(0,0,0,0.7)]">
+    <div className="glass rounded-2xl p-2">
       {/* -------------------------------------------------------- Scrubber */}
-      <div className="px-3 pt-3 pb-1">
+      <div
+        ref={trackRef}
+        role="slider"
+        tabIndex={0}
+        aria-label="Playhead"
+        aria-valuemin={0}
+        aria-valuemax={duration}
+        aria-valuenow={0}
+        aria-valuetext={`${formatTime(source.currentTime)} of ${formatTime(duration)}`}
+        onKeyDown={onTrackKeyDown}
+        onPointerDown={(event) => beginDrag(event, 'playhead')}
+        className={cn(
+          'relative mx-1.5 h-9 cursor-pointer touch-none rounded-md bg-black/35 select-none pointer-coarse:h-11',
+          dragging && 'cursor-grabbing',
+        )}
+      >
+        {/* Ruler */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+          {ticks.map((tick) => {
+            const ratio = duration > 0 ? tick / duration : 0;
+            // The ends are the clip's own edges; a label there would only clip.
+            if (ratio <= 0.02 || ratio >= 0.98) return null;
+            return (
+              <div
+                key={tick}
+                className="absolute inset-y-0 flex items-center"
+                style={{ left: `${ratio * 100}%` }}
+              >
+                <span className="tabular -translate-x-1/2 text-caption text-muted-foreground">
+                  {formatTick(tick, tickSpacing)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Regions outside the trim selection */}
         <div
-          ref={trackRef}
-          role="slider"
-          tabIndex={0}
-          aria-label="Playhead"
-          aria-valuemin={0}
-          aria-valuemax={duration}
-          aria-valuenow={0}
-          aria-valuetext={`${formatTime(source.currentTime)} of ${formatTime(duration)}`}
-          onKeyDown={onTrackKeyDown}
-          onPointerDown={(event) => beginDrag(event, 'playhead')}
-          className={cn(
-            'relative h-14 w-full cursor-pointer touch-none rounded-[8px] border border-border bg-background select-none',
-            dragging && 'cursor-grabbing',
-          )}
-        >
-          {/* Ruler */}
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-full">
-            {ticks.map((tick) => {
-              const ratio = duration > 0 ? tick / duration : 0;
-              if (ratio > 1) return null;
-              return (
-                <div
-                  key={tick}
-                  className="absolute top-0 flex h-full flex-col justify-start"
-                  style={{ left: `${ratio * 100}%` }}
-                >
-                  <span className="block h-2 w-px bg-input" />
-                  <span className="mt-0.5 -translate-x-1/2 pl-px font-mono text-[9px] text-faint">
-                    {formatTime(tick)}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 left-0 rounded-l-md bg-black/50"
+          style={{ width: `${startRatio * 100}%` }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 rounded-r-md bg-black/50"
+          style={{ width: `${(1 - endRatio) * 100}%` }}
+        />
 
-          {/* Regions outside the trim selection */}
+        {/* Selected region */}
+        {timeline.trimmed && (
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 rounded-l-[7px] bg-background/70"
-            style={{ width: `${startRatio * 100}%` }}
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 right-0 rounded-r-[7px] bg-background/70"
-            style={{ width: `${(1 - endRatio) * 100}%` }}
-          />
-
-          {/* Selected region */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 border-x border-primary/70 bg-primary/[0.07]"
+            className="pointer-events-none absolute inset-y-0 border-y-2 border-trim"
             style={{ left: `${startRatio * 100}%`, width: `${(endRatio - startRatio) * 100}%` }}
           />
+        )}
 
-          {/* Progress + playhead */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-y-0 left-0 bg-primary/[0.10]"
-            ref={progressRef}
-            style={{ width: '0%' }}
-          />
-          <div
-            aria-hidden="true"
-            ref={playheadRef}
-            className="pointer-events-none absolute inset-y-0 z-10 w-px bg-primary"
-            style={{ left: '0%' }}
-          >
-            <span className="absolute -top-px -left-[4px] h-[9px] w-[9px] rounded-[2px] bg-primary" />
-          </div>
+        {/* Playhead */}
+        <div
+          aria-hidden="true"
+          ref={playheadRef}
+          className="pointer-events-none absolute -inset-y-0.5 z-10 -ml-px w-0.5 rounded-full bg-white shadow-[0_0_3px_rgb(0_0_0/0.8)]"
+          style={{ left: '0%' }}
+        />
 
-          {/* Trim handles */}
-          <button
-            type="button"
-            role="slider"
-            aria-label="Trim start"
-            aria-valuemin={0}
-            aria-valuemax={trim.end}
-            aria-valuenow={trim.start}
-            aria-valuetext={`Start at ${formatTime(trim.start)}`}
-            onPointerDown={(event) => beginDrag(event, 'start')}
-            onKeyDown={(event) => handleKey(event, 'start')}
-            className="absolute inset-y-0 z-20 -ml-[7px] w-[14px] cursor-ew-resize touch-none"
-            style={{ left: `${startRatio * 100}%` }}
-          >
-            <span className="absolute inset-y-1 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.6)]" />
-          </button>
-          <button
-            type="button"
-            role="slider"
-            aria-label="Trim end"
-            aria-valuemin={trim.start}
-            aria-valuemax={duration}
-            aria-valuenow={trim.end}
-            aria-valuetext={`End at ${formatTime(trim.end)}`}
-            onPointerDown={(event) => beginDrag(event, 'end')}
-            onKeyDown={(event) => handleKey(event, 'end')}
-            className="absolute inset-y-0 z-20 -ml-[7px] w-[14px] cursor-ew-resize touch-none"
-            style={{ left: `${endRatio * 100}%` }}
-          >
-            <span className="absolute inset-y-1 left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.6)]" />
-          </button>
-        </div>
+        {/* Trim handles */}
+        <button
+          type="button"
+          role="slider"
+          aria-label="Trim start"
+          aria-valuemin={0}
+          aria-valuemax={trim.end}
+          aria-valuenow={trim.start}
+          aria-valuetext={`Start at ${formatTime(trim.start)}`}
+          onPointerDown={(event) => beginDrag(event, 'start')}
+          onKeyDown={(event) => handleKey(event, 'start')}
+          className="absolute inset-y-0 z-20 -ml-2.5 w-5 cursor-ew-resize touch-none pointer-coarse:-ml-4 pointer-coarse:w-8"
+          style={{ left: `${startRatio * 100}%` }}
+        >
+          <span className={handleBar} />
+        </button>
+        <button
+          type="button"
+          role="slider"
+          aria-label="Trim end"
+          aria-valuemin={trim.start}
+          aria-valuemax={duration}
+          aria-valuenow={trim.end}
+          aria-valuetext={`End at ${formatTime(trim.end)}`}
+          onPointerDown={(event) => beginDrag(event, 'end')}
+          onKeyDown={(event) => handleKey(event, 'end')}
+          className="absolute inset-y-0 z-20 -ml-2.5 w-5 cursor-ew-resize touch-none pointer-coarse:-ml-4 pointer-coarse:w-8"
+          style={{ left: `${endRatio * 100}%` }}
+        >
+          <span className={handleBar} />
+        </button>
       </div>
 
       {/* ------------------------------------------------------- Transport */}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 pt-2 pb-2.5">
-        <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 pt-1.5">
+        <div className="flex items-center">
           <IconButton
             label={transport.playing ? 'Pause' : 'Play'}
             onClick={transport.toggle}
             size="lg"
-            className="border border-input bg-secondary text-foreground hover:bg-accent"
+            className="text-foreground"
           >
             {transport.playing ? <PauseIcon /> : <PlayIcon />}
           </IconButton>
@@ -289,16 +300,27 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
           </IconButton>
         </div>
 
-        <div className="font-mono tabular text-[12.5px] whitespace-nowrap">
+        <div className="tabular whitespace-nowrap">
           <span ref={timeLabelRef} className="text-foreground">
             {formatTime(0)}
           </span>
-          <span className="px-1 text-faint">/</span>
-          <span className="text-muted-foreground">{formatTime(duration)}</span>
+          <span className="px-1 text-fg-dim">/</span>
+          <span className="text-fg-dim">{formatTime(duration)}</span>
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5">
-          {source.info.hasAudio ? (
+        <div className="am-trim-row order-last w-full sm:order-none sm:w-auto">
+          <TrimControls
+            trim={trim}
+            trimmed={timeline.trimmed}
+            getTime={transport.getTime}
+            onSetStart={timeline.setStart}
+            onSetEnd={timeline.setEnd}
+            onReset={timeline.reset}
+          />
+        </div>
+
+        <div className="ml-auto flex items-center gap-0.5">
+          {source.info.hasAudio && (
             <div
               className="relative flex items-center"
               onMouseEnter={() => setShowVolume(true)}
@@ -313,63 +335,35 @@ export function Timeline({ source, transport, timeline }: TimelineProps) {
               </IconButton>
               <div
                 className={cn(
-                  'overflow-hidden transition-[width,opacity] duration-200',
-                  showVolume ? 'w-[92px] opacity-100' : 'w-0 opacity-0',
+                  'overflow-hidden transition-[width,opacity] duration-200 ease-apple',
+                  showVolume ? 'w-22 opacity-100' : 'w-0 opacity-0',
                 )}
               >
-                <input
-                  type="range"
+                <Slider
                   min={0}
                   max={1}
                   step={0.01}
-                  value={transport.muted ? 0 : transport.volume}
+                  value={[transport.muted ? 0 : transport.volume]}
                   aria-label="Volume"
                   aria-valuetext={`${Math.round(transport.volume * 100)} percent`}
-                  onChange={(event) => transport.setVolume(Number(event.target.value))}
+                  onValueChange={([next]) => transport.setVolume(next)}
                   onBlur={() => setShowVolume(false)}
-                  className="am-slider !h-6 w-[84px]"
-                  style={{
-                    ['--am-fill' as string]: `${(transport.muted ? 0 : transport.volume) * 100}%`,
-                  }}
+                  className="mx-1 w-20"
                 />
               </div>
             </div>
-          ) : (
-            <span className="hidden font-mono text-[10.5px] tracking-wide text-faint uppercase sm:inline">
-              no audio
-            </span>
           )}
 
-          <div className="flex items-center rounded-[7px] border border-border bg-background p-0.5">
-            {PLAYBACK_RATES.map((rate) => (
-              <button
-                key={rate}
-                type="button"
-                aria-pressed={transport.rate === rate}
-                onClick={() => transport.setRate(rate)}
-                className={cn(
-                  'rounded-[5px] px-1.5 py-1 font-mono text-[10.5px] transition-colors',
-                  transport.rate === rate
-                    ? 'bg-accent text-foreground'
-                    : 'text-muted-foreground hover:text-fg-dim',
-                )}
-              >
-                {rate}×
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="w-full border-t border-border pt-2.5">
-          <TrimControls
-            trim={trim}
-            duration={duration}
-            trimmed={timeline.trimmed}
-            getTime={transport.getTime}
-            onSetStart={timeline.setStart}
-            onSetEnd={timeline.setEnd}
-            onReset={timeline.reset}
-          />
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`Playback speed ${transport.rate} times. Press to change.`}
+            title="Playback speed"
+            onClick={cycleRate}
+            className="tabular min-w-11"
+          >
+            {transport.rate}×
+          </Button>
         </div>
       </div>
     </div>

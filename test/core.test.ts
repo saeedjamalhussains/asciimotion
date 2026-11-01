@@ -15,7 +15,7 @@ import { clamp, cropForAspect, fitInside, ratioFor } from '../src/utils/aspectRa
 import { buildExportFilename, sanitizeFilenameStem } from '../src/utils/fileHandling';
 import { formatBytes, formatTime, formatTimePrecise } from '../src/utils/formatTime';
 import { hexToRgb, isValidHex, normalizeHex, rgbToHex } from '../src/utils/color';
-import { buildTicks, ratioToTime, timeToRatio } from '../src/video/timeline';
+import { buildTicks, formatTick, ratioToTime, tickInterval, timeToRatio } from '../src/video/timeline';
 import { clampPlayhead, clampTrim, MIN_TRIM_DURATION, trimDuration } from '../src/video/trim';
 import type { EditorSettings } from '../src/types';
 
@@ -383,6 +383,16 @@ describe('timeline mapping', () => {
       }
     }
     assert.deepEqual(buildTicks(Number.POSITIVE_INFINITY, 10), []);
+  });
+
+  it('never gives two ruler ticks the same label', () => {
+    for (const duration of [0.4, 1, 2.93, 3, 4, 5.5, 12, 59, 90, 600, 3600, 86400]) {
+      const interval = tickInterval(duration, 6);
+      const labels = buildTicks(duration, 6).map((tick) => formatTick(tick, interval));
+      assert.equal(new Set(labels).size, labels.length, `${duration}s: ${labels.join(', ')}`);
+    }
+    assert.equal(formatTick(1.5, 0.5), '1.5s');
+    assert.equal(formatTick(4, 2), '00:04');
   });
 });
 

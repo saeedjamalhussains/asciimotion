@@ -42,7 +42,6 @@ export function ImageControls({ settings, onChange }: ImageControlsProps) {
         display={settings.gamma.toFixed(2)}
         defaultValue={DEFAULT_SETTINGS.gamma}
         onChange={(gamma) => onChange({ gamma })}
-        hint="Above 1 lifts mid-tones; below 1 deepens them."
       />
       <LabeledSlider
         label="Exposure"
@@ -50,7 +49,7 @@ export function ImageControls({ settings, onChange }: ImageControlsProps) {
         min={-100}
         max={100}
         step={1}
-        display={`${signed(settings.exposure)} EV·⅓`}
+        display={signed(settings.exposure)}
         defaultValue={DEFAULT_SETTINGS.exposure}
         onChange={(exposure) => onChange({ exposure })}
       />
@@ -63,11 +62,9 @@ export function ImageControls({ settings, onChange }: ImageControlsProps) {
         display={`${settings.sharpness}%`}
         defaultValue={DEFAULT_SETTINGS.sharpness}
         onChange={(sharpness) => onChange({ sharpness })}
-        hint="Unsharp mask applied to the character grid before mapping."
       />
       <LabeledSwitch
         label="Invert"
-        description="Flip light and dark before the ramp is applied."
         checked={settings.invert}
         onChange={(invert) => onChange({ invert })}
       />

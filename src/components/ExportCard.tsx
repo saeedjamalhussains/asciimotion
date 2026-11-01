@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import type { UseExport } from '../hooks/useExport';
 import type { ExportFormat, ExportSettings, QualityLevel } from '../types';
-import { cn } from '@/lib/utils';
 import { formatBytes } from '../utils/formatTime';
 import { ExportProgress } from './ExportProgress';
 import { Button } from '@/components/ui/button';
@@ -60,7 +59,7 @@ export function ExportCard({
   if (busy) {
     return (
       <PanelCard title="Export" collapsible={false}>
-        <ExportProgress state={state} onCancel={exporter.cancel} compact />
+        <ExportProgress state={state} onCancel={exporter.cancel} />
       </PanelCard>
     );
   }
@@ -69,11 +68,11 @@ export function ExportCard({
   if (result && state.phase === 'done') {
     return (
       <PanelCard title="Export" collapsible={false}>
-        <div className="flex items-start gap-2.5 rounded-[8px] border border-primary/35 bg-primary-subtle/40 p-2.5">
-          <CheckIcon width={15} height={15} className="mt-0.5 shrink-0 text-primary" />
+        <div className="flex items-start gap-2">
+          <CheckIcon width={16} height={16} className="mt-px shrink-0 text-tint" />
           <div className="min-w-0">
-            <p className="truncate font-mono text-[11.5px] text-foreground">{result.filename}</p>
-            <p className="pt-0.5 font-mono tabular text-[10.5px] text-muted-foreground">
+            <p className="truncate">{result.filename}</p>
+            <p className="tabular pt-0.5 text-footnote text-muted-foreground">
               {result.width}×{result.height} · {result.durationSeconds.toFixed(1)}s ·{' '}
               {formatBytes(result.blob.size)}
             </p>
@@ -83,24 +82,22 @@ export function ExportCard({
         {result.notes.length > 0 && (
           <ul className="space-y-1">
             {result.notes.map((note) => (
-              <li key={note} className="text-[11.5px] leading-relaxed text-muted-foreground">
-                — {note}
+              <li key={note} className="text-footnote text-muted-foreground">
+                {note}
               </li>
             ))}
           </ul>
         )}
 
-        <Button className="w-full" onClick={exporter.download}>
-          <DownloadIcon width={15} height={15} />
-          Download {result.filename.split('.').pop()?.toUpperCase()}
-        </Button>
-        <button
-          type="button"
-          onClick={exporter.reset}
-          className="w-full text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Export again
-        </button>
+        <div className="space-y-1.5">
+          <Button className="w-full" onClick={exporter.download}>
+            <DownloadIcon width={15} height={15} />
+            Download {result.filename.split('.').pop()?.toUpperCase()}
+          </Button>
+          <Button variant="ghost" className="w-full" onClick={exporter.reset}>
+            Export Again
+          </Button>
+        </div>
       </PanelCard>
     );
   }
@@ -109,53 +106,30 @@ export function ExportCard({
   return (
     <PanelCard title="Export" collapsible={false}>
       {(error || state.phase === 'cancelled') && (
-        <div
-          role="alert"
-          className={cn(
-            'flex items-start gap-2 rounded-[8px] border px-2.5 py-2',
-            error ? 'border-destructive/35 bg-destructive/10' : 'border-border bg-background',
-          )}
-        >
-          {error && <AlertIcon width={14} height={14} className="mt-0.5 shrink-0 text-destructive" />}
+        <div role="alert" className="flex items-start gap-2">
+          {error && <AlertIcon width={15} height={15} className="mt-px shrink-0 text-destructive" />}
           <div className="min-w-0">
-            <p className={cn('text-[12px]', error ? 'text-destructive' : 'text-fg-dim')}>
+            <p className={error ? 'text-destructive' : 'text-fg-dim'}>
               {error ? error.reason : 'Export cancelled.'}
             </p>
-            {error && <p className="pt-0.5 text-[11.5px] leading-snug text-muted-foreground">{error.hint}</p>}
+            {error && <p className="pt-0.5 text-footnote text-muted-foreground">{error.hint}</p>}
           </div>
         </div>
       )}
 
-      <div className="grid grid-cols-3 gap-1.5">
-        {FORMATS.map((format) => {
+      <OptionGroup
+        label="Format"
+        value={exportSettings.format}
+        options={FORMATS.map((format) => {
           const info = support?.[format.value];
           const unavailable = Boolean(support) && !info?.available;
-          const active = exportSettings.format === format.value;
-          return (
-            <button
-              key={format.value}
-              type="button"
-              aria-pressed={active}
-              disabled={unavailable}
-              title={unavailable ? info?.note : undefined}
-              onClick={() => onChange({ format: format.value })}
-              className={cn(
-                'rounded-[7px] border py-1.5 font-mono text-[11.5px] transition-colors',
-                active
-                  ? 'border-primary/45 bg-primary-subtle/60 text-primary'
-                  : 'border-border bg-background text-muted-foreground hover:border-input hover:text-foreground',
-                unavailable && 'cursor-not-allowed opacity-35 hover:border-border hover:text-muted-foreground',
-              )}
-            >
-              {format.label}
-            </button>
-          );
+          return { ...format, disabled: unavailable, title: unavailable ? info?.note : undefined };
         })}
-      </div>
+        onChange={(format) => onChange({ format })}
+      />
 
       <OptionGroup
         label="Frame rate"
-        size="sm"
         value={exportSettings.fps}
         options={[24, 30, 60].map((fps) => ({ value: fps, label: `${fps}` }))}
         onChange={(fps) => onChange({ fps })}
@@ -163,7 +137,6 @@ export function ExportCard({
 
       <OptionGroup
         label="Quality"
-        size="sm"
         value={exportSettings.quality}
         options={QUALITIES}
         onChange={(quality) => onChange({ quality })}
@@ -171,8 +144,6 @@ export function ExportCard({
 
       <OptionGroup
         label="Resolution"
-        size="sm"
-        columns={4}
         value={exportSettings.resolutionPreset}
         options={[
           { value: 'current', label: 'Auto' },
@@ -188,7 +159,7 @@ export function ExportCard({
       {exportSettings.resolutionPreset === 'custom' && (
         <div className="grid grid-cols-2 gap-2">
           <label className="flex items-center gap-1.5">
-            <span className="font-mono text-[10.5px] text-faint">W</span>
+            <span className="text-footnote text-muted-foreground">W</span>
             <input
               type="number"
               min={64}
@@ -197,11 +168,11 @@ export function ExportCard({
               value={exportSettings.customWidth}
               aria-label="Custom width in pixels"
               onChange={(event) => onChange({ customWidth: Number(event.target.value) })}
-              className="h-8 w-full rounded-[6px] border border-border bg-background px-2 font-mono text-[11.5px] text-foreground"
+              className="tabular h-7 w-full min-w-0 rounded-md bg-fill px-2 text-footnote text-foreground pointer-coarse:h-10"
             />
           </label>
           <label className="flex items-center gap-1.5">
-            <span className="font-mono text-[10.5px] text-faint">H</span>
+            <span className="text-footnote text-muted-foreground">H</span>
             <input
               type="number"
               min={64}
@@ -210,24 +181,26 @@ export function ExportCard({
               value={exportSettings.customHeight}
               aria-label="Custom height in pixels"
               onChange={(event) => onChange({ customHeight: Number(event.target.value) })}
-              className="h-8 w-full rounded-[6px] border border-border bg-background px-2 font-mono text-[11.5px] text-foreground"
+              className="tabular h-7 w-full min-w-0 rounded-md bg-fill px-2 text-footnote text-foreground pointer-coarse:h-10"
             />
           </label>
         </div>
       )}
 
-      <LabeledSwitch
-        label="Original audio"
-        checked={exportSettings.includeAudio && audioAvailable}
-        disabled={!audioAvailable}
-        onChange={(includeAudio) => onChange({ includeAudio })}
-      />
+      {hasAudio && (
+        <LabeledSwitch
+          label="Original audio"
+          checked={exportSettings.includeAudio && audioAvailable}
+          disabled={!audioAvailable}
+          onChange={(includeAudio) => onChange({ includeAudio })}
+        />
+      )}
 
       {notes.length > 0 && (
         <ul className="space-y-1">
           {notes.map((note) => (
-            <li key={note} className="text-[11px] leading-relaxed text-faint">
-              — {note}
+            <li key={note} className="text-footnote text-muted-foreground">
+              {note}
             </li>
           ))}
         </ul>
@@ -239,7 +212,7 @@ export function ExportCard({
         onClick={() => void exporter.start(exportSettings)}
       >
         <DownloadIcon width={15} height={15} />
-        {probing ? 'Checking encoders…' : 'Export video'}
+        {probing ? 'Checking Encoders…' : 'Export Video'}
       </Button>
     </PanelCard>
   );

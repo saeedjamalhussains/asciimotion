@@ -31,19 +31,19 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <div className="flex min-h-full items-center justify-center bg-background p-6">
-        <div className="w-full max-w-md rounded-[14px] border border-destructive/35 bg-destructive/10 p-6">
+        <div className="w-full max-w-md rounded-2xl bg-card p-6">
           <AlertIcon width={22} height={22} className="text-destructive" />
-          <h1 className="pt-4 text-[18px]">Something went wrong</h1>
-          <p className="pt-2 text-[13.5px] leading-relaxed text-muted-foreground">
+          <h1 className="pt-4 text-title font-semibold">Something went wrong</h1>
+          <p className="pt-2 text-muted-foreground">
             The editor hit an unexpected error and stopped. Reloading the page clears everything
             and starts fresh.
           </p>
-          <p className="mt-4 overflow-x-auto rounded-[8px] border border-border bg-background px-3 py-2 font-mono text-[11.5px] text-fg-dim">
+          <p className="mt-4 overflow-x-auto rounded-lg bg-fill px-3 py-2 font-mono text-footnote text-fg-dim">
             {error.message || String(error)}
           </p>
           <div className="pt-5">
             <Button onClick={() => window.location.reload()} className="w-full">
-              Reload ASCII Motion
+              Reload
             </Button>
           </div>
         </div>
