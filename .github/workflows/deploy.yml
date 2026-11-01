@@ -20,15 +20,22 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      actions: write # Needed to delete the previous build artifacts.
     steps:
       - name: Checkout
         uses: actions/checkout@v5
 
+      # No dependency cache: every commit installs and builds from nothing.
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
           node-version: 22
-          cache: npm
+
+      - name: Remove any previous output
+        run: rm -rf dist node_modules
 
       - name: Install dependencies
         run: npm ci
@@ -40,6 +47,16 @@ jobs:
         # Pages must be enabled once in Settings > Pages with the source set
         # to GitHub Actions. The workflow token cannot create the Pages site.
         uses: actions/configure-pages@v5
+
+      # Runs after the build, so a failed build leaves the last good one in place.
+      - name: Delete previous build artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api --paginate "repos/$GITHUB_REPOSITORY/actions/artifacts?name=github-pages" --jq '.artifacts[].id' |
+            while read -r id; do
+              gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/artifacts/$id"
+            done
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
