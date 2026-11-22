@@ -1,0 +1,364 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+/* Ships the `data-open` / `data-checked` / `data-horizontal` … variants that the
+   registry components are written against. */
+@import 'shadcn/tailwind.css';
+
+/* ------------------------------------------------------------------
+   Raster Ledger tokens (docs/design-philosophy.md).
+
+   A near-black ground with a faint phosphor cast, one green for every signal,
+   one amber for the trimmed range, and a tight ladder of greys for hierarchy.
+   Dark-only, so the artwork stays the brightest thing on screen.
+   ------------------------------------------------------------------ */
+
+:root {
+  --sunken: #030403;
+  --background: #050605;
+  --card: #0a0c0b;
+  --popover: #111412;
+
+  /* Fills sit under controls; hairlines draw their edges. */
+  --fill: #101311;
+  --muted: #171b19;
+  --input: #252b28;
+  --secondary: var(--fill);
+
+  --border: #1d2220;
+  --hairline: #2a312d;
+
+  --foreground: #e4ebe6;
+  --fg-dim: #b3bdb7;
+  --muted-foreground: #8a948e;
+  --faint: #7a847e;
+
+  /* Phosphor: `primary` is the fill under dark text, `tint` the same signal as text. */
+  --primary: #3dfd7f;
+  --primary-foreground: #031007;
+  --tint: #3dfd7f;
+  --trim: #ffb43d;
+
+  --accent: var(--primary);
+  --accent-foreground: var(--primary-foreground);
+  --secondary-foreground: var(--foreground);
+  --card-foreground: var(--foreground);
+  --popover-foreground: var(--foreground);
+
+  --destructive: #ff6b5e;
+
+  --ring: var(--tint);
+
+  /* Cut, not rounded. */
+  --radius: 0.25rem;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sunken: var(--sunken);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-hairline: var(--hairline);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-fill: var(--fill);
+  --color-fg-dim: var(--fg-dim);
+  --color-faint: var(--faint);
+  --color-tint: var(--tint);
+  --color-trim: var(--trim);
+
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: var(--radius);
+  --radius-xl: var(--radius);
+  --radius-2xl: var(--radius);
+}
+
+@theme {
+  /*
+   * Monospaced throughout, so the interface speaks the renderer's language.
+   * System faces only, referenced by name and never fetched: the app makes no
+   * network request beyond its own files.
+   */
+  --font-sans:
+    ui-monospace, 'SF Mono', SFMono-Regular, 'JetBrains Mono', 'Cascadia Mono', Menlo, Consolas,
+    monospace;
+  --font-mono: var(--font-sans);
+
+  /*
+   * Tracking and leading are set per size: small type opens up, large type
+   * tightens. Sizes are in rem so the layout follows the reader's text setting.
+   */
+  --text-micro: 0.625rem;
+  --text-micro--line-height: 1.2;
+  --text-micro--letter-spacing: 0.14em;
+  --text-caption: 0.6875rem;
+  --text-caption--line-height: 1.3;
+  --text-caption--letter-spacing: 0.02em;
+  --text-footnote: 0.71875rem;
+  --text-footnote--line-height: 1.35;
+  --text-footnote--letter-spacing: 0;
+  --text-body: 0.78125rem;
+  --text-body--line-height: 1.45;
+  --text-body--letter-spacing: -0.01em;
+  --text-title: 0.875rem;
+  --text-title--line-height: 1.25;
+  --text-title--letter-spacing: 0.02em;
+  --text-display: 1.375rem;
+  --text-display--line-height: 1.15;
+  --text-display--letter-spacing: -0.02em;
+
+  --ease-apple: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: var(--text-body--line-height);
+    letter-spacing: var(--text-body--letter-spacing);
+    font-variant-ligatures: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    overscroll-behavior: none;
+  }
+
+  /* One focus ring everywhere; it follows each control's own corner radius. */
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
+}
+
+/* Feedback lands the instant a control is pressed: it settles one pixel down. */
+@utility press {
+  transition:
+    transform 80ms steps(1, end),
+    background-color 120ms ease,
+    border-color 120ms ease,
+    color 120ms ease,
+    filter 120ms ease;
+
+  &:active:not(:disabled) {
+    transform: translateY(1px);
+  }
+}
+
+/* Small, uppercase, widely tracked: labels whisper. */
+@utility label-micro {
+  font-size: var(--text-micro);
+  line-height: var(--text-micro--line-height);
+  letter-spacing: var(--text-micro--letter-spacing);
+  text-transform: uppercase;
+}
+
+/* --------------------------------------------------------------
+   Materials: chrome floats over the stage as ruled, near-opaque plates. A
+   hairline draws the edge; there is no glow, only a hard drop to lift it.
+   -------------------------------------------------------------- */
+.glass {
+  background: rgb(8 10 9 / 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline),
+    0 10px 24px rgb(0 0 0 / 0.6);
+}
+
+.glass-chip {
+  background: rgb(8 10 9 / 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline),
+    0 4px 12px rgb(0 0 0 / 0.5);
+}
+
+/* A dense ruler: minor ticks every 2% of the track, read bottom-up. */
+.am-ruler {
+  background-image: repeating-linear-gradient(
+    to right,
+    rgb(228 235 230 / 0.14) 0 1px,
+    transparent 1px 2%
+  );
+  background-size: 100% 5px;
+  background-position: left bottom;
+  background-repeat: no-repeat;
+}
+
+/* Progress fills in discrete blocks rather than a smooth bar. */
+.am-blocks {
+  -webkit-mask-image: repeating-linear-gradient(to right, #000 0 6px, transparent 6px 8px);
+  mask-image: repeating-linear-gradient(to right, #000 0 6px, transparent 6px 8px);
+}
+
+/* Plates arrive with a short drop into place. */
+@keyframes am-materialize {
+  from {
+    opacity: 0;
+    transform: translateY(-2px);
+  }
+}
+
+.animate-materialize {
+  animation: am-materialize 140ms var(--ease-apple) both;
+}
+
+/* Fades in behind the opening panel; closing is instant so it never blocks input. */
+@keyframes am-disclose {
+  from {
+    height: 0;
+    opacity: 0;
+  }
+  to {
+    height: var(--radix-collapsible-content-height);
+    opacity: 1;
+  }
+}
+
+.animate-disclose[data-state='open'] {
+  animation: am-disclose 240ms var(--ease-apple);
+}
+
+/* Checkerboard used to indicate a transparent export background. */
+.checkerboard {
+  background-color: #070908;
+  background-image:
+    linear-gradient(45deg, #141816 25%, transparent 25%),
+    linear-gradient(-45deg, #141816 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #141816 75%),
+    linear-gradient(-45deg, transparent 75%, #141816 75%);
+  background-size: 16px 16px;
+  background-position:
+    0 0,
+    0 8px,
+    8px -8px,
+    -8px 0;
+}
+
+/* Native colour input, restyled to a swatch. */
+.am-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  background: var(--fill);
+  cursor: pointer;
+}
+.am-swatch::-webkit-color-swatch-wrapper {
+  padding: 3px;
+}
+.am-swatch::-webkit-color-swatch {
+  border: none;
+  border-radius: 1px;
+}
+.am-swatch::-moz-color-swatch {
+  border: none;
+  border-radius: 1px;
+  margin: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .press:active:not(:disabled) {
+    transform: none;
+    filter: brightness(1.2);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass,
+  .glass-chip {
+    background: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --border: #6f7a74;
+    --hairline: #8a948e;
+    --muted-foreground: #d4dcd7;
+    --faint: #b3bdb7;
+  }
+
+  .glass,
+  .glass-chip {
+    background: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    box-shadow: inset 0 0 0 1px var(--hairline);
+  }
+}
